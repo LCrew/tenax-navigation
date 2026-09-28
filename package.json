@@ -1,0 +1,11 @@
+{
+  "name": "tenax-navigation",
+  "private": true,
+  "type": "module",
+  "workspaces": ["web", "server"],
+  "scripts": {
+    "dev": "npm run dev -w server & npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "typecheck": "npm run typecheck -w web && npm run typecheck -w server"
+  }
+}
