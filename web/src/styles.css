@@ -16,6 +16,9 @@
   --icon-bg: color-mix(in srgb, var(--text) 5%, var(--surface));
   --raised: color-mix(in srgb, var(--text) 6%, var(--surface));
   --danger: #ef4d5a;
+  /* Chart series: fixed, CVD-validated against the dark surface (the theme accent is admin-editable, so not used here). */
+  --series-views: #3987e5;
+  --series-clicks: #d95926;
 
   color-scheme: dark;
   font-family: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -25,6 +28,8 @@
 }
 :root[data-scheme='light'] {
   color-scheme: light;
+  --series-views: #2a78d6;
+  --series-clicks: #eb6834;
 }
 
 *,

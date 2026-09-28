@@ -1,5 +1,6 @@
 import { useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { Tile as TileT } from '../../../shared/schema';
+import { api } from '../api';
 import { readableOn } from '../theme';
 import { TileIcon } from './TileIcon';
 import './Tile.css';
@@ -41,6 +42,7 @@ export function Tile({ tile, onOpen, disabled }: Props) {
       setRevealed(true);
       return;
     }
+    api.track({ type: 'click', tileId: tile.id });
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
     onOpen?.(tile, e);
   };
@@ -54,6 +56,7 @@ export function Tile({ tile, onOpen, disabled }: Props) {
       style={style}
       onPointerDown={(e) => (pointer.current = e.pointerType)}
       onClick={onClick}
+      onAuxClick={(e) => !disabled && e.button === 1 && api.track({ type: 'click', tileId: tile.id })}
       onBlur={() => setRevealed(false)}
       aria-label={`${tile.title}${tile.description ? ` – ${tile.description}` : ''}`}
       tabIndex={disabled ? -1 : undefined}

@@ -1,0 +1,232 @@
+.modal--wide {
+  width: min(980px, 100%);
+}
+
+.stats {
+  display: grid;
+  gap: 20px;
+}
+
+.stats__filters {
+  display: inline-flex;
+  justify-self: start;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.seg {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+.seg:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.stats__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.stat-tile {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.stat-tile__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.stat-tile__value {
+  font-size: 1.6rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats__card {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+.stats__card h3 {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+
+/* ---------- trend chart ---------- */
+.trend {
+  position: relative;
+}
+.trend svg {
+  display: block;
+  overflow: visible;
+}
+.trend__grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.trend__axis {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.trend__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.trend__line--views,
+.trend__dot--views {
+  stroke: var(--series-views);
+}
+.trend__line--clicks,
+.trend__dot--clicks {
+  stroke: var(--series-clicks);
+}
+.trend__dot {
+  fill: var(--surface);
+  stroke-width: 2;
+}
+.trend__cross {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.trend__empty {
+  position: absolute;
+  inset: 30px 0 26px 40px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.legend__swatch--views {
+  background: var(--series-views);
+}
+.legend__swatch--clicks {
+  background: var(--series-clicks);
+}
+
+.tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.4);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ---------- ranking ---------- */
+.ranking {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.ranking th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 8px 8px;
+}
+.ranking td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--line);
+}
+.ranking .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  width: 1%;
+}
+.ranking .muted,
+.ranking tr.is-zero td {
+  color: var(--muted);
+}
+.ranking__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ranking__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  color: var(--accent);
+}
+.ranking__bar-col {
+  width: 45%;
+}
+.ranking__track {
+  display: block;
+  height: 8px;
+}
+.ranking__bar {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--series-clicks);
+}
+@media (max-width: 600px) {
+  .ranking__bar-col {
+    display: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

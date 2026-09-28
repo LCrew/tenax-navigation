@@ -1,5 +1,7 @@
 import type { Config } from '../../shared/schema';
 
+export type StatsDay = { date: string; views: number; clicks: Record<string, number> };
+
 export type Me = { signedIn: boolean; isAdmin: boolean; name?: string };
 
 async function json<T>(res: Response): Promise<T> {
@@ -21,6 +23,10 @@ export const api = {
     fd.append('file', file);
     return fetch('/api/uploads', { method: 'POST', body: fd }).then((r) => json<{ path: string }>(r));
   },
+  stats: (days: number) => fetch(`/api/stats?days=${days}`).then((r) => json<{ days: StatsDay[] }>(r)),
+  // Fire-and-forget; keepalive lets it finish even if the page navigates away.
+  track: (ev: { type: 'view' } | { type: 'click'; tileId: string }) =>
+    fetch('/api/track', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify(ev) }).catch(() => {}),
   logout: () => fetch('/auth/logout', { method: 'POST' }),
 };
 

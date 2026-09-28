@@ -48,6 +48,14 @@ People who sign in without the role can still view the page but cannot edit it.
   - `Always new tab`.
 - The framing check runs when a tile is saved. The server fetches the URL and inspects `X-Frame-Options` / CSP `frame-ancestors`.
 
+### Statistics
+
+Signed-in admins see a **Statistics** button in the top bar. It shows page views, tool clicks, clicks per view and a daily trend for the last 7 / 30 / 90 / 365 days, plus every tool ranked by clicks. Unused tools show 0, so you can spot what nobody opens.
+
+- A *view* is one page load. A *click* is one opened tool: normal, Ctrl/⌘ or middle click. On touch devices the first tap only reveals the tile, so it isn't counted.
+- Counts are anonymous daily totals in `/data/stats.json`. No IPs, cookies or user identities are stored. Days follow `STATS_TZ` (default `Europe/Riga`), and data older than ~400 days is dropped.
+- Counts are written to disk every 15 s and on shutdown.
+
 ### Letting internal tools open inside the page
 
 Many sites (Microsoft 365, GitHub, most SaaS) forbid being framed, so they always open in a new tab. For your own tools, allow the navigation host in their response headers:

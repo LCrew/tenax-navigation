@@ -1,4 +1,4 @@
-import { Check, LogOut, Pencil, Plus, Settings, X } from 'lucide-react';
+import { BarChart3, Check, LogOut, Pencil, Plus, Settings, X } from 'lucide-react';
 import type { Me } from '../api';
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   onCancel: () => void;
   onSave: () => void;
   onSettings: () => void;
+  onStats: () => void;
   onAddGroup: () => void;
   onLogout: () => void;
 };
@@ -26,6 +27,9 @@ export function EditBar(p: Props) {
     return (
       <div className="editbar">
         <span className="editbar__user">{p.me.name}</span>
+        <button className="btn btn--sm" onClick={p.onStats}>
+          <BarChart3 size={14} /> Statistics
+        </button>
         <button className="btn btn--sm" onClick={p.onEdit}>
           <Pencil size={14} /> Edit page
         </button>

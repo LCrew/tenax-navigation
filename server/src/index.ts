@@ -9,6 +9,7 @@ import { auth } from './auth';
 import { loadConfig } from './config-store';
 import { env } from './env';
 import { api, uploadsDir } from './routes/api';
+import { flushStats, loadStats } from './stats';
 
 await fs.mkdir(uploadsDir, { recursive: true });
 
@@ -42,7 +43,10 @@ const clientIp = (c: any) =>
   (env.trustProxy && c.req.header('x-forwarded-for')?.split(',')[0].trim()) || getConnInfo(c).remote.address || 'unknown';
 const limiter = (limit: number) => rateLimiter({ windowMs: 60_000, limit, keyGenerator: clientIp });
 app.use('/auth/*', limiter(30));
-app.on(['POST', 'PUT', 'DELETE'], '/api/*', limiter(60));
+// Anonymous tracking gets its own, higher budget (a whole office may share one IP).
+const writeLimiter = limiter(60);
+const trackLimiter = limiter(600);
+app.on(['POST', 'PUT', 'DELETE'], '/api/*', (c, next) => (c.req.path === '/api/track' ? trackLimiter : writeLimiter)(c, next));
 
 app.onError((err, c) => {
   console.error(`${c.req.method} ${c.req.path} failed:`, err);
@@ -88,6 +92,15 @@ app.get('*', async (c) => {
 });
 
 await loadConfig();
-serve({ fetch: app.fetch, port: env.port }, (info) => {
+await loadStats();
+const server = serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.log(`Navigation server listening on :${info.port}${env.devNoAuth ? ' (DEV_NO_AUTH: everyone is admin)' : ''}`);
 });
+
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, async () => {
+    await flushStats();
+    server.close();
+    process.exit(0);
+  });
+}

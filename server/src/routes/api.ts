@@ -9,6 +9,7 @@ import { getSession, requireAdmin } from '../auth';
 import { loadConfig, saveConfig } from '../config-store';
 import { env } from '../env';
 import { probeEmbeddable } from '../probe';
+import { getStats, recordClick, recordView } from '../stats';
 
 export const uploadsDir = path.join(env.dataDir, 'uploads');
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -24,6 +25,31 @@ api.get('/config', async (c) => {
 api.get('/me', async (c) => {
   const s = await getSession(c);
   return c.json(s ? { signedIn: true, name: s.name, isAdmin: s.isAdmin } : { signedIn: false, isAdmin: false });
+});
+
+// Public, anonymous usage tracking. Only ids of tiles that exist are counted.
+const TrackSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('view') }),
+  z.object({ type: z.literal('click'), tileId: z.string().max(40) }),
+]);
+
+api.post('/track', async (c) => {
+  const ev = TrackSchema.safeParse(await c.req.json().catch(() => null));
+  if (!ev.success) return c.body(null, 400);
+  if (ev.data.type === 'view') recordView();
+  else {
+    const { tileId } = ev.data;
+    const config = await loadConfig();
+    if (!config.groups.some((g) => g.tiles.some((t) => t.id === tileId))) return c.body(null, 404);
+    recordClick(tileId);
+  }
+  return c.body(null, 204);
+});
+
+api.get('/stats', requireAdmin, (c) => {
+  const days = Math.min(Math.max(Number(c.req.query('days')) || 30, 1), 365);
+  c.header('Cache-Control', 'no-store');
+  return c.json({ days: getStats(days) });
 });
 
 api.put('/config', requireAdmin, async (c) => {

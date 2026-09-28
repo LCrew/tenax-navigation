@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'reac
 import type { Config, Tile as TileT } from '../../shared/schema';
 import { EditBar } from './admin/EditBar';
 import { SettingsPanel } from './admin/SettingsPanel';
+import { StatsPanel } from './admin/StatsPanel';
 import { TileEditor } from './admin/TileEditor';
 import { api, newId, type Me } from './api';
 import { TileGrid, type GridActions } from './components/TileGrid';
 import { Viewer } from './components/Viewer';
 import { applyTheme, watchScheme } from './theme';
+
+let viewTracked = false;
 
 const openIdFromHash = () => decodeURIComponent(location.hash.match(/^#\/open\/(.+)$/)?.[1] ?? '') || null;
 
@@ -24,6 +27,7 @@ export function App() {
   const [openId, setOpenId] = useState(openIdFromHash);
   const [editor, setEditor] = useState<{ groupId: string; tile: TileT | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -32,6 +36,10 @@ export function App() {
 
   useEffect(() => {
     api.config().then(setConfig, (e) => setLoadError(e.message));
+    if (!viewTracked) {
+      viewTracked = true; // StrictMode runs effects twice in dev
+      api.track({ type: 'view' });
+    }
     api.me().then(setMe, () => {});
     if (new URLSearchParams(location.search).has('denied')) {
       setToast('Your account does not have admin access.');
@@ -158,6 +166,7 @@ export function App() {
             onCancel={() => setDraft(null)}
             onSave={save}
             onSettings={() => setSettingsOpen(true)}
+            onStats={() => setStatsOpen(true)}
             onAddGroup={() => update((c) => ({ ...c, groups: [...c.groups, { id: newId(), name: 'New section', tiles: [] }] }))}
             onLogout={() => api.logout().then(() => setMe({ signedIn: false, isAdmin: false }))}
           />
@@ -181,6 +190,7 @@ export function App() {
         />
       )}
       {settingsOpen && draft && <SettingsPanel config={draft} onChange={setDraft} onClose={() => setSettingsOpen(false)} />}
+      {statsOpen && config && <StatsPanel config={config} onClose={() => setStatsOpen(false)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </>
   );
