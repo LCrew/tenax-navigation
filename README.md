@@ -1,6 +1,6 @@
 # Tenax Navigation
 
-A start page of large, animated link tiles. Anyone on the network can view it. Admins sign in with Microsoft Entra ID and edit tiles, icons, colors and layout in the page. Tools open inside the page (iframe) when the target site allows it, and in a new tab otherwise.
+A start page of large, animated link tiles. The whole site sits behind a Microsoft Entra ID (company account) login. Every employee can view it; admins also edit tiles, icons, colors and layout in the page. Tools open inside the page (iframe) when the target site allows it, and in a new tab otherwise.
 
 - **Frontend:** React + Vite (`web/`)
 - **Backend:** Node 22 + Hono, bundled into one `server.js` (`server/`)
@@ -32,12 +32,15 @@ Backups: copy the `navigation-data` volume, or use **Settings → Export JSON** 
 
 Alternatively, set `ADMIN_GROUP_ID` to a security group's object ID and enable the *groups* claim under **Token configuration**. The app role is preferred because it avoids the groups-overage limit.
 
-People who sign in without the role can still view the page but cannot edit it.
+**Viewers need no role.** Any account in your tenant can sign in and see the page. The `Nav.Admin` role only adds **Edit page** and **Statistics**. Keep **Enterprise applications → Tenax Navigation → Properties → Assignment required?** set to **No**, which is the default. If you set it to *Yes*, only users or groups you assign under *Users and groups* can sign in at all. That's useful to limit the page to, say, an "All staff" group.
+
+Accounts from other organizations are rejected by Microsoft, because the app is single-tenant.
 
 ## Using it
 
 - **Hover a tile** (or focus it with Tab): bars sweep in, then the description and URL appear. **Click** to open the tool. On touch devices the first tap reveals the tile and the second tap opens it.
-- **Admin link** (top right, subtle) → Microsoft sign-in → **Edit page**:
+- **Opening the site** sends you to Microsoft sign-in, then back to the page you asked for. Usually there's no prompt, because you're already signed in to Microsoft 365. The session lasts 8 h, after which a reload silently signs you in again. **Sign out** (top right) shows a *Signed out* page.
+- **Admins** also see **Edit page** and **Statistics** in the top bar. **Edit page**:
   - Drag tiles to reorder them, and use ✎ / 🗑 on each tile.
   - **+ Section** adds a section. Sections can be renamed, moved and deleted.
   - **Settings**: title, logo, color mode, column count, theme colors, the three hover-bar colors, and JSON import/export.
@@ -76,7 +79,7 @@ npm run dev -w web      # :5173, proxies /api /auth /uploads to :8080
 
 ## Security notes
 
-- Every write route requires an admin session. The session is an HMAC-signed, httpOnly, SameSite=Lax cookie with an 8 h lifetime. On top of that, each write must send an `Origin` header matching `PUBLIC_URL` (CSRF protection).
+- Every route except `/auth/*` and `/healthz` requires a signed-in session: pages redirect to sign-in, and `/api/*` returns 401. Static files are sent with `Cache-Control: private`, so Cloudflare's edge never caches them for other visitors. Every write route also requires an admin session. The session is an HMAC-signed, httpOnly, SameSite=Lax cookie with an 8 h lifetime. On top of that, each write must send an `Origin` header matching `PUBLIC_URL` (CSRF protection).
 - The config is validated with zod on the server:
   - Only `http(s)` URLs are allowed.
   - Colors and ids are pattern-checked.

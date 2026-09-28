@@ -16,23 +16,20 @@ type Props = {
 };
 
 export function EditBar(p: Props) {
-  if (!p.me.isAdmin) {
-    return (
-      <a className="admin-link" href="/auth/login" title="Admin sign-in">
-        Admin
-      </a>
-    );
-  }
   if (!p.editing) {
     return (
       <div className="editbar">
         <span className="editbar__user">{p.me.name}</span>
-        <button className="btn btn--sm" onClick={p.onStats}>
-          <BarChart3 size={14} /> Statistics
-        </button>
-        <button className="btn btn--sm" onClick={p.onEdit}>
-          <Pencil size={14} /> Edit page
-        </button>
+        {p.me.isAdmin && (
+          <>
+            <button className="btn btn--sm" onClick={p.onStats}>
+              <BarChart3 size={14} /> Statistics
+            </button>
+            <button className="btn btn--sm" onClick={p.onEdit}>
+              <Pencil size={14} /> Edit page
+            </button>
+          </>
+        )}
         <button className="icon-btn" onClick={p.onLogout} title="Sign out" aria-label="Sign out">
           <LogOut size={16} />
         </button>

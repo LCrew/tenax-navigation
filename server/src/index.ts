@@ -5,7 +5,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { Hono } from 'hono';
 import { rateLimiter } from 'hono-rate-limiter';
-import { auth } from './auth';
+import { auth, requireLogin } from './auth';
 import { loadConfig } from './config-store';
 import { env } from './env';
 import { api, uploadsDir } from './routes/api';
@@ -43,7 +43,7 @@ const clientIp = (c: any) =>
   (env.trustProxy && c.req.header('x-forwarded-for')?.split(',')[0].trim()) || getConnInfo(c).remote.address || 'unknown';
 const limiter = (limit: number) => rateLimiter({ windowMs: 60_000, limit, keyGenerator: clientIp });
 app.use('/auth/*', limiter(30));
-// Anonymous tracking gets its own, higher budget (a whole office may share one IP).
+// Tracking gets its own, higher budget (a whole office may share one IP).
 const writeLimiter = limiter(60);
 const trackLimiter = limiter(600);
 app.on(['POST', 'PUT', 'DELETE'], '/api/*', (c, next) => (c.req.path === '/api/track' ? trackLimiter : writeLimiter)(c, next));
@@ -57,6 +57,7 @@ app.onError((err, c) => {
 });
 
 app.route('/auth', auth);
+app.use('*', requireLogin);
 app.route('/api', api);
 app.all('/api/*', (c) => c.json({ error: 'Not found' }, 404));
 
@@ -65,7 +66,7 @@ app.use(
   async (c, next) => {
     await next();
     c.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-    c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    c.header('Cache-Control', 'private, max-age=31536000, immutable');
   },
   serveStatic({ root: path.relative(process.cwd(), uploadsDir), rewriteRequestPath: (p) => p.replace(/^\/uploads/, '') }),
 );
@@ -76,7 +77,7 @@ app.use(
   '/assets/*',
   async (c, next) => {
     await next();
-    if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    if (c.res.ok) c.header('Cache-Control', 'private, max-age=31536000, immutable'); // private: no edge caching behind login
   },
   serveStatic({ root: staticRoot }),
 );

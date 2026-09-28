@@ -36,6 +36,21 @@ export async function getSession(c: Parameters<MiddlewareHandler>[0]): Promise<S
   }
 }
 
+// Only same-site relative paths, so the login flow can't be used as an open redirect.
+function safeReturnTo(v: string | undefined) {
+  return v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') && !v.startsWith('/auth/') ? v : '/';
+}
+
+// Site-wide gate: everything except sign-in routes and the health check needs a company login.
+export const requireLogin: MiddlewareHandler = async (c, next) => {
+  const p = c.req.path;
+  if (p === '/healthz' || p.startsWith('/auth/') || (await getSession(c))) return next();
+  if (p.startsWith('/api/')) return c.json({ error: 'Not signed in' }, 401);
+  if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return c.text('Not signed in', 401);
+  const url = new URL(c.req.url);
+  return c.redirect(`/auth/login?returnTo=${encodeURIComponent(url.pathname + url.search)}`);
+};
+
 export const requireAdmin: MiddlewareHandler = async (c, next) => {
   const s = await getSession(c);
   if (!s) return c.json({ error: 'Not signed in' }, 401);
@@ -46,12 +61,13 @@ export const requireAdmin: MiddlewareHandler = async (c, next) => {
 export const auth = new Hono();
 
 auth.get('/login', async (c) => {
-  if (env.devNoAuth) return c.redirect('/');
+  const returnTo = safeReturnTo(c.req.query('returnTo'));
+  if (env.devNoAuth) return c.redirect(returnTo);
   const config = await getOidcConfig();
   const verifier = oidc.randomPKCECodeVerifier();
   const state = oidc.randomState();
   const nonce = oidc.randomNonce();
-  await setSignedCookie(c, LOGIN_COOKIE, JSON.stringify({ verifier, state, nonce }), env.sessionSecret, {
+  await setSignedCookie(c, LOGIN_COOKIE, JSON.stringify({ verifier, state, nonce, returnTo }), env.sessionSecret, {
     httpOnly: true,
     secure,
     sameSite: 'Lax',
@@ -72,8 +88,8 @@ auth.get('/login', async (c) => {
 auth.get('/callback', async (c) => {
   const raw = await getSignedCookie(c, env.sessionSecret, LOGIN_COOKIE);
   deleteCookie(c, LOGIN_COOKIE, { path: '/auth' });
-  if (!raw) return c.text('Login expired, please try again.', 400);
-  const { verifier, state, nonce } = JSON.parse(raw);
+  if (!raw) return c.redirect('/auth/login'); // e.g. the sign-in tab sat open too long; just start over
+  const { verifier, state, nonce, returnTo } = JSON.parse(raw);
 
   const config = await getOidcConfig();
   const current = new URL(redirectUri);
@@ -90,9 +106,9 @@ auth.get('/callback', async (c) => {
     claims = tokens.claims();
   } catch (err) {
     console.error('OIDC callback failed', err);
-    return c.text('Sign-in failed.', 401);
+    return c.html(messagePage('Sign-in failed', 'Microsoft sign-in could not be completed.'), 401);
   }
-  if (!claims) return c.text('Sign-in failed.', 401);
+  if (!claims) return c.html(messagePage('Sign-in failed', 'Microsoft sign-in could not be completed.'), 401);
 
   const roles = (claims.roles as string[] | undefined) ?? [];
   const groups = (claims.groups as string[] | undefined) ?? [];
@@ -112,10 +128,22 @@ auth.get('/callback', async (c) => {
     path: '/',
     maxAge: SESSION_TTL_S,
   });
-  return c.redirect(isAdmin ? '/' : '/?denied=1');
+  return c.redirect(safeReturnTo(returnTo));
 });
 
+// Signing out lands on a static page instead of the site, which would immediately bounce back to Microsoft.
 auth.post('/logout', (c) => {
   deleteCookie(c, SESSION_COOKIE, { path: '/' });
-  return c.json({ ok: true });
+  return c.json({ redirect: '/auth/signed-out' });
 });
+
+auth.get('/signed-out', (c) => c.html(messagePage('Signed out', 'You have been signed out.')));
+
+function messagePage(title: string, text: string) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#0e1020;color:#eef0ff}
+main{text-align:center;padding:24px}h1{font-size:1.4rem;margin:0 0 8px}p{opacity:.75;margin:0 0 20px}
+a{display:inline-block;padding:10px 18px;border-radius:10px;background:#f5a623;color:#12142a;font-weight:600;text-decoration:none}
+</style></head><body><main><h1>${title}</h1><p>${text}</p><a href="/auth/login">Sign in with Microsoft</a></main></body></html>`;
+}

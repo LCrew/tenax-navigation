@@ -41,10 +41,6 @@ export function App() {
       api.track({ type: 'view' });
     }
     api.me().then(setMe, () => {});
-    if (new URLSearchParams(location.search).has('denied')) {
-      setToast('Your account does not have admin access.');
-      history.replaceState(null, '', location.pathname + location.hash);
-    }
     const onHash = () => setOpenId(openIdFromHash());
     const onToast = (e: Event) => setToast((e as CustomEvent<string>).detail);
     window.addEventListener('hashchange', onHash);
@@ -168,7 +164,7 @@ export function App() {
             onSettings={() => setSettingsOpen(true)}
             onStats={() => setStatsOpen(true)}
             onAddGroup={() => update((c) => ({ ...c, groups: [...c.groups, { id: newId(), name: 'New section', tiles: [] }] }))}
-            onLogout={() => api.logout().then(() => setMe({ signedIn: false, isAdmin: false }))}
+            onLogout={() => api.logout()}
           />
         </header>
         <main>

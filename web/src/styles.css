@@ -197,17 +197,6 @@ select {
   color: var(--accent);
 }
 
-.admin-link {
-  font-size: 0.8rem;
-  color: var(--muted);
-  text-decoration: none;
-  opacity: 0.6;
-}
-.admin-link:hover,
-.admin-link:focus-visible {
-  opacity: 1;
-  color: var(--accent);
-}
 
 .editbar {
   display: flex;
@@ -293,7 +282,7 @@ select {
 .icon-btn--danger:hover {
   color: var(--danger);
 }
-:is(.btn, .icon-btn, .admin-link):focus-visible {
+:is(.btn, .icon-btn):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
