@@ -1,9 +1,10 @@
-import type { MouseEvent } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDown, ArrowUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, ImagePlus, LoaderCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { Group, Tile as TileT } from '../../../shared/schema';
+import { api } from '../api';
 import { Tile } from './Tile';
 
 export type GridActions = {
@@ -11,6 +12,7 @@ export type GridActions = {
   deleteTile: (groupId: string, tileId: string) => void;
   moveTile: (groupId: string, fromId: string, toId: string) => void;
   renameGroup: (groupId: string, name: string) => void;
+  setGroupLogo: (groupId: string, logoUrl: string | undefined) => void;
   deleteGroup: (groupId: string) => void;
   moveGroup: (groupId: string, dir: -1 | 1) => void;
 };
@@ -22,13 +24,20 @@ type Props = {
   actions: GridActions;
 };
 
-function SortableTile({ groupId, tile, actions }: { groupId: string; tile: TileT; actions: GridActions }) {
+/** entrance stagger: 45 ms per tile, capped so long pages don't keep cascading */
+const MAX_STAGGER = 12;
+
+function toast(text: string) {
+  document.dispatchEvent(new CustomEvent('toast', { detail: text }));
+}
+
+function SortableTile({ groupId, tile, index, actions }: { groupId: string; tile: TileT; index: number; actions: GridActions }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.id });
   return (
     <div
       ref={setNodeRef}
       className={`tile-edit${isDragging ? ' is-dragging' : ''}`}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{ transform: CSS.Transform.toString(transform), transition, ['--i' as string]: index }}
     >
       <Tile tile={tile} disabled />
       <div className="tile-edit__tools">
@@ -61,8 +70,55 @@ function confirmDelete(key: string) {
     return true;
   }
   pendingDeletes.set(key, now);
-  document.dispatchEvent(new CustomEvent('toast', { detail: `Click delete again to remove “${key}”` }));
+  toast(`Click delete again to remove “${key}”`);
   return false;
+}
+
+/** Company logo for a section: upload / replace / remove in edit mode. */
+function LogoSlot({ group, actions }: { group: Group; actions: GridActions }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { path } = await api.upload(file);
+      actions.setGroupLogo(group.id, path);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+
+  return (
+    <div className="logo-slot">
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        hidden
+        onChange={(e) => upload(e.target.files?.[0])}
+      />
+      {group.logoUrl ? (
+        <>
+          <button className="logo-plate" onClick={() => input.current?.click()} title="Replace logo" disabled={busy}>
+            <img src={group.logoUrl} alt="Section logo" />
+          </button>
+          <button className="icon-btn" onClick={() => actions.setGroupLogo(group.id, undefined)} aria-label="Remove logo" title="Remove logo">
+            <X size={14} />
+          </button>
+        </>
+      ) : (
+        <button className="logo-slot__pick" onClick={() => input.current?.click()} disabled={busy} title="Add a company logo for this section">
+          {busy ? <LoaderCircle size={18} className="spin-icon" /> : <ImagePlus size={18} />}
+          <span>Logo</span>
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function TileGrid({ groups, editing, onOpen, actions }: Props) {
@@ -71,19 +127,25 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // one running index across all sections so the cascade flows down the page
+  let n = 0;
+  const next = () => Math.min(n++, MAX_STAGGER);
+
   return (
     <div className="groups">
       {groups.map((g, gi) => (
         <section key={g.id} className="group" aria-label={g.name || 'Links'}>
           {editing ? (
             <div className="group__head group__head--edit">
+              <LogoSlot group={g} actions={actions} />
               <input
                 className="input group__name-input"
                 value={g.name}
                 placeholder="Section name (optional)"
                 onChange={(e) => actions.renameGroup(g.id, e.target.value)}
+                aria-label="Section name"
               />
-              <button className="icon-btn" disabled={gi === 0} onClick={() => actions.moveGroup(g.id, -1)} title="Move section up">
+              <button className="icon-btn" disabled={gi === 0} onClick={() => actions.moveGroup(g.id, -1)} title="Move section up" aria-label="Move section up">
                 <ArrowUp size={16} />
               </button>
               <button
@@ -91,6 +153,7 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
                 disabled={gi === groups.length - 1}
                 onClick={() => actions.moveGroup(g.id, 1)}
                 title="Move section down"
+                aria-label="Move section down"
               >
                 <ArrowDown size={16} />
               </button>
@@ -98,12 +161,22 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
                 className="icon-btn icon-btn--danger"
                 onClick={() => confirmDelete(g.name || 'section') && actions.deleteGroup(g.id)}
                 title="Delete section"
+                aria-label="Delete section"
               >
                 <Trash2 size={16} />
               </button>
             </div>
           ) : (
-            g.name && <h2 className="group__head">{g.name}</h2>
+            (g.name || g.logoUrl) && (
+              <div className="group__head">
+                {g.logoUrl && (
+                  <span className="logo-plate">
+                    <img src={g.logoUrl} alt={g.name ? `${g.name} logo` : 'Company logo'} />
+                  </span>
+                )}
+                {g.name && <h2 className="group__name">{g.name}</h2>}
+              </div>
+            )
           )}
 
           {editing ? (
@@ -115,9 +188,9 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
               <SortableContext items={g.tiles.map((t) => t.id)} strategy={rectSortingStrategy}>
                 <div className="grid">
                   {g.tiles.map((t) => (
-                    <SortableTile key={t.id} groupId={g.id} tile={t} actions={actions} />
+                    <SortableTile key={t.id} groupId={g.id} tile={t} index={next()} actions={actions} />
                   ))}
-                  <button className="tile-add" onClick={() => actions.editTile(g.id, null)}>
+                  <button className="tile-add" onClick={() => actions.editTile(g.id, null)} style={{ ['--i' as string]: next() }}>
                     <Plus size={28} />
                     <span>Add tile</span>
                   </button>
@@ -127,7 +200,7 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
           ) : (
             <div className="grid">
               {g.tiles.map((t) => (
-                <Tile key={t.id} tile={t} onOpen={onOpen} />
+                <Tile key={t.id} tile={t} onOpen={onOpen} index={next()} />
               ))}
             </div>
           )}

@@ -25,20 +25,22 @@ export function Viewer({ tile, onClose }: { tile: Tile; onClose: () => void }) {
   return (
     <div className="viewer" role="dialog" aria-label={tile.title}>
       <div className="viewer__bar">
-        <button className="btn btn--ghost" onClick={onClose} title="Back (Esc)">
-          <ArrowLeft size={18} /> Back
+        <button className="rb rb--sm" onClick={onClose} title="Back (Esc)" aria-label="Back">
+          <ArrowLeft size={20} />
         </button>
         <span className="viewer__title">
-          <TileIcon icon={tile.icon} size={20} />
+          <span className="viewer__title-icon" aria-hidden="true">
+            <TileIcon icon={tile.icon} size={20} />
+          </span>
           <strong>{tile.title}</strong>
           <span className="viewer__url">{prettyUrl(tile.url)}</span>
         </span>
         <span className="viewer__hint">Blank page? The site may block embedding →</span>
-        <button className="btn btn--ghost" onClick={() => setReloadKey((k) => k + 1)} title="Reload">
+        <button className="rb rb--sm" onClick={() => setReloadKey((k) => k + 1)} title="Reload" aria-label="Reload">
           <RotateCw size={18} />
         </button>
-        <a className="btn btn--primary" href={tile.url} target="_blank" rel="noopener noreferrer">
-          <ExternalLink size={18} /> New tab
+        <a className="btn btn--primary" href={tile.url} target="_blank" rel="noopener noreferrer" title="Open in a new tab">
+          <ExternalLink size={18} /> <span className="btn--label">New tab</span>
         </a>
       </div>
       <div className="viewer__body">

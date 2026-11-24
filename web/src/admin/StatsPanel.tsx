@@ -41,10 +41,10 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
 
   return (
     <Modal title="Statistics" onClose={onClose} wide>
-      <div className="stats">
-        <div className="stats__filters" role="group" aria-label="Time range">
+      <div className="stats stack">
+        <div className="seg" role="group" aria-label="Time range">
           {RANGES.map((r) => (
-            <button key={r} className={`seg${r === range ? ' is-active' : ''}`} aria-pressed={r === range} onClick={() => setRange(r)}>
+            <button key={r} className={r === range ? 'on' : undefined} aria-pressed={r === range} onClick={() => setRange(r)}>
               {r === 365 ? '1 year' : `${r} days`}
             </button>
           ))}
@@ -54,7 +54,8 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
         {!summary && !error && <span className="spinner" />}
 
         {summary && days && (
-          <>
+          // keyed by range so the tiles, chart lines and bars build up again for every new range
+          <div className="stack" key={range}>
             <div className="stats__tiles">
               <StatTile label="Page views" value={fmt.format(summary.views)} />
               <StatTile label="Tool clicks" value={fmt.format(summary.clicks)} />
@@ -62,20 +63,20 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
               <StatTile label="Most used" value={summary.rows[0]?.clicks ? (summary.rows[0].tile?.title ?? 'Removed tile') : '–'} />
             </div>
 
-            <section className="stats__card">
-              <h3>Daily activity</h3>
+            <section className="card stats__card">
+              <span className="label">Daily activity</span>
               <TrendChart days={days} />
             </section>
 
-            <section className="stats__card">
-              <h3>Clicks per tool</h3>
+            <section className="card stats__card">
+              <span className="label">Clicks per tool</span>
               <Ranking rows={summary.rows} total={summary.clicks} />
             </section>
 
             <p className="field__hint">
               Counts are anonymous daily totals: a view is one page load, a click is one opened tool. Days follow Latvian time.
             </p>
-          </>
+          </div>
         )}
       </div>
     </Modal>
@@ -109,7 +110,7 @@ function Ranking({ rows, total }: { rows: { id: string; tile?: Tile; clicks: num
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
+        {rows.map((r, i) => (
           <tr key={r.id} className={r.clicks ? undefined : 'is-zero'}>
             <td>
               <span className="ranking__tool">
@@ -119,7 +120,9 @@ function Ranking({ rows, total }: { rows: { id: string; tile?: Tile; clicks: num
             </td>
             <td className="ranking__bar-col">
               <span className="ranking__track">
-                {r.clicks > 0 && <span className="ranking__bar" style={{ width: `${(r.clicks / max) * 100}%` }} />}
+                {r.clicks > 0 && (
+                  <span className="ranking__bar" style={{ width: `${(r.clicks / max) * 100}%`, animationDelay: `${0.3 + Math.min(i, 12) * 0.04}s` }} />
+                )}
               </span>
             </td>
             <td className="num">{fmt.format(r.clicks)}</td>
@@ -188,8 +191,14 @@ function TrendChart({ days }: { days: StatsDay[] }) {
             {dayLabel(series[i].date)}
           </text>
         ))}
-        <path className="trend__line trend__line--views" d={line('views')} />
-        <path className="trend__line trend__line--clicks" d={line('clicks')} />
+        <path className="trend__line trend__line--views" d={line('views')} pathLength={1} />
+        <path className="trend__line trend__line--clicks" d={line('clicks')} pathLength={1} />
+        {!allZero && (
+          <g className="trend__end">
+            <circle className="trend__dot trend__dot--views" cx={x(series.length - 1)} cy={y(series[series.length - 1].views)} r={3.5} />
+            <circle className="trend__dot trend__dot--clicks" cx={x(series.length - 1)} cy={y(series[series.length - 1].clicks)} r={3.5} />
+          </g>
+        )}
         {h && hover !== null && (
           <g>
             <line className="trend__cross" x1={x(hover)} x2={x(hover)} y1={pad.t} y2={H - pad.b} />

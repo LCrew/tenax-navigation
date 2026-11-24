@@ -38,6 +38,8 @@ export const TileSchema = z.object({
 export const GroupSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
   name: z.string().max(80),
+  /** Optional company logo shown next to the section name. */
+  logoUrl: uploadPath.optional(),
   tiles: z.array(TileSchema).max(200),
 });
 
@@ -54,7 +56,8 @@ export const ConfigSchema = z.object({
     title: z.string().min(1).max(80),
     logoUrl: uploadPath.optional(),
     theme: ThemeSchema,
-    mode: z.enum(['dark', 'light', 'auto']).default('auto'),
+    /** Default look for everyone; viewers can override it for themselves. */
+    mode: z.enum(['auto', 'light', 'dark', 'blue', 'green', 'neon']).default('auto'),
     columns: z.number().int().min(1).max(4).default(3),
   }),
   groups: z.array(GroupSchema).max(50),

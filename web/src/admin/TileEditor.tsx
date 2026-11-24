@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { LoaderCircle } from 'lucide-react';
 import { TileSchema, type Group, type Tile as TileT } from '../../../shared/schema';
 import { api, newId } from '../api';
 import { Tile } from '../components/Tile';
 import { IconPicker } from './IconPicker';
-import { ColorField, Field, Modal } from './Modal';
+import { Card, ColorField, Field, Modal } from './Modal';
 
 type Props = {
   tile: TileT | null;
@@ -22,6 +23,11 @@ const blank = (): TileT => ({
   icon: { type: 'lucide', value: 'globe' },
   openMode: 'auto',
 });
+
+function EmbedStatus({ embeddable }: { embeddable?: boolean }) {
+  if (embeddable === undefined) return <span className="status status--idle">Not checked yet</span>;
+  return embeddable ? <span className="status status--ok">Opens inside the page</span> : <span className="status status--bad">Opens in a new tab</span>;
+}
 
 export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<TileT>(tile ?? blank());
@@ -61,10 +67,9 @@ export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }
     try {
       const p = await api.probe(draft.url);
       set('embeddable', p.embeddable ?? undefined);
-      const verdict = p.embeddable === null ? '? Unknown' : p.embeddable ? '✓ Can be embedded' : '✕ Cannot be embedded';
-      setProbe({ busy: false, reason: `${verdict} — ${p.reason}` });
-    } catch (e: any) {
-      setProbe({ busy: false, reason: e.message });
+      setProbe({ busy: false, reason: p.reason });
+    } catch (e) {
+      setProbe({ busy: false, reason: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -84,31 +89,33 @@ export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }
         </>
       }
     >
-      <div className="editor">
+      <div className="stack">
         <div className="editor__preview">
-          <span className="field__label">Preview (hover it)</span>
+          <span className="label">Preview · hover it</span>
           <Tile tile={{ ...draft, title: draft.title || 'Title' }} disabled />
         </div>
-        <div className="editor__form">
+
+        <Card label="Link">
           <Field label="Title">
             <input className="input" value={draft.title} maxLength={80} autoFocus onChange={(e) => set('title', e.target.value)} />
           </Field>
-          <Field label="Description">
+          <Field label="Description" hint="Shown when the tile is hovered.">
             <input className="input" value={draft.description} maxLength={200} onChange={(e) => set('description', e.target.value)} />
           </Field>
-          <Field label="URL">
+          <Field label="Address (URL)">
             <input
               className="input input--mono"
               value={draft.url}
+              inputMode="url"
               onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value, embeddable: undefined }))}
             />
           </Field>
-          <div className="row">
+          <div className="row row--2">
             <Field label="Open as">
               <select className="input" value={draft.openMode} onChange={(e) => set('openMode', e.target.value as TileT['openMode'])}>
-                <option value="auto">Auto (inside page if the site allows it)</option>
-                <option value="iframe">Always inside page</option>
-                <option value="newTab">Always new tab</option>
+                <option value="auto">Auto (inside the page if the site allows it)</option>
+                <option value="iframe">Always inside the page</option>
+                <option value="newTab">Always in a new tab</option>
               </select>
             </Field>
             <Field label="Section">
@@ -123,21 +130,24 @@ export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }
           </div>
           <div className="probe">
             <button type="button" className="btn btn--sm" onClick={runProbe} disabled={probe.busy}>
-              Check if embeddable
+              {probe.busy && <LoaderCircle size={15} className="spin-icon" />} Check if it can open inside
             </button>
-            <span className="field__hint">
-              {probe.reason ?? (draft.embeddable === undefined ? 'Not checked yet' : draft.embeddable ? '✓ Can be embedded' : '✕ Opens in new tab')}
-            </span>
+            <EmbedStatus embeddable={draft.embeddable} />
+            {probe.reason && <span className="field__hint">{probe.reason}</span>}
           </div>
+        </Card>
+
+        <Card label="Icon">
+          <IconPicker value={draft.icon} onChange={(i) => set('icon', i)} />
+        </Card>
+
+        <Card label="Hover colours (optional)">
           <div className="row row--3">
             <ColorField label="Sweep bar 1" value={draft.colors?.bar1} placeholder={barColors[0]} onChange={(v) => setColor('bar1', v)} />
             <ColorField label="Sweep bar 2" value={draft.colors?.bar2} placeholder={barColors[1]} onChange={(v) => setColor('bar2', v)} />
             <ColorField label="Panel fill" value={draft.colors?.fill} placeholder={barColors[2]} onChange={(v) => setColor('fill', v)} />
           </div>
-        </div>
-        <Field label="Icon">
-          <IconPicker value={draft.icon} onChange={(i) => set('icon', i)} />
-        </Field>
+        </Card>
       </div>
     </Modal>
   );

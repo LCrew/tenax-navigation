@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { Config, Tile as TileT } from '../../shared/schema';
 import { EditBar } from './admin/EditBar';
 import { SettingsPanel } from './admin/SettingsPanel';
@@ -30,12 +30,18 @@ export function App() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [look, setLook] = useState(0); // bumps when the viewer changes their theme / glass choice
+  const [compact, setCompact] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const editing = draft !== null;
   const shown = draft ?? config;
 
   useEffect(() => {
     api.config().then(setConfig, (e) => setLoadError(e.message));
+    // tells public/boot.js the page has drawn, so the opening screen can fade out
+    const ready = () => (document.documentElement.dataset.ready = '1');
+    const t = setTimeout(ready, 6000);
     if (!viewTracked) {
       viewTracked = true; // StrictMode runs effects twice in dev
       api.track({ type: 'view' });
@@ -48,8 +54,13 @@ export function App() {
     return () => {
       window.removeEventListener('hashchange', onHash);
       document.removeEventListener('toast', onToast);
+      clearTimeout(t);
     };
   }, []);
+
+  useEffect(() => {
+    if (config || loadError) requestAnimationFrame(() => (document.documentElement.dataset.ready = '1'));
+  }, [config, loadError]);
 
   useEffect(() => {
     if (!toast) return;
@@ -61,7 +72,17 @@ export function App() {
     if (!shown) return;
     applyTheme(shown.site);
     return watchScheme(() => applyTheme(shown.site));
-  }, [shown?.site]);
+  }, [shown?.site, look]);
+
+  // compact frosted bar once the big title has scrolled out of view
+  const hasPage = !!shown;
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasPage]);
 
   const dirty = useMemo(() => editing && JSON.stringify(draft) !== JSON.stringify(config), [draft, config, editing]);
   useEffect(() => {
@@ -98,6 +119,11 @@ export function App() {
         return { ...g, tiles };
       }),
     renameGroup: (groupId, name) => mapGroup(groupId, (g) => ({ ...g, name })),
+    setGroupLogo: (groupId, logoUrl) =>
+      mapGroup(groupId, (g) => {
+        const { logoUrl: _old, ...rest } = g;
+        return logoUrl ? { ...rest, logoUrl } : rest;
+      }),
     deleteGroup: (groupId) => update((c) => ({ ...c, groups: c.groups.filter((g) => g.id !== groupId) })),
     moveGroup: (groupId, dir) =>
       update((c) => {
@@ -141,23 +167,37 @@ export function App() {
   };
 
   if (loadError) return <div className="center">Could not load navigation: {loadError}</div>;
-  if (!shown) return <div className="center"><span className="spinner" /></div>;
+  if (!shown) return <div className="center" aria-busy="true"><span className="spinner" /></div>;
 
   const openTileObj = openId ? shown.groups.flatMap((g) => g.tiles).find((t) => t.id === openId) : undefined;
 
   return (
     <>
+      <div className={`cbar${compact && !openTileObj ? ' on' : ''}`} aria-hidden={!compact}>
+        <div className="cbar__inner">
+          {shown.site.logoUrl && <img src={shown.site.logoUrl} alt="" className="cbar__logo" />}
+          <span className="cbar__title">{shown.site.title}</span>
+          {editing && (
+            <button className="btn btn--sm btn--primary" onClick={save} disabled={!dirty || saving} tabIndex={compact ? 0 : -1}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className={`page${openTileObj ? ' page--behind' : ''}`} aria-hidden={!!openTileObj}>
         <header className="topbar">
           <div className="brand">
             {shown.site.logoUrl && <img src={shown.site.logoUrl} alt="" className="brand__logo" />}
-            <h1>{shown.site.title}</h1>
+            <h1 className="page-title" ref={titleRef}>{shown.site.title}</h1>
           </div>
           <EditBar
             me={me}
             editing={editing}
             dirty={dirty}
             saving={saving}
+            siteMode={shown.site.mode}
+            onLook={() => setLook((n) => n + 1)}
             onEdit={() => config && setDraft(structuredClone(config))}
             onCancel={() => setDraft(null)}
             onSave={save}

@@ -9,6 +9,8 @@ type Props = {
   tile: TileT;
   onOpen?: (tile: TileT, e: MouseEvent<HTMLAnchorElement>) => void;
   disabled?: boolean; // edit mode: no navigation
+  /** position on the page, for the staggered entrance (capped by the caller) */
+  index?: number;
 };
 
 export function prettyUrl(url: string) {
@@ -20,19 +22,20 @@ export function prettyUrl(url: string) {
   }
 }
 
-export function Tile({ tile, onOpen, disabled }: Props) {
+export function Tile({ tile, onOpen, disabled, index }: Props) {
   const [revealed, setRevealed] = useState(false);
   const pointer = useRef<string>('mouse');
 
-  const style: CSSProperties = {};
+  const style: Record<string, string | number> = {};
   const c = tile.colors;
-  if (c?.bar1) (style as any)['--bar1'] = c.bar1;
-  if (c?.bar2) (style as any)['--bar2'] = c.bar2;
+  if (c?.bar1) style['--bar1'] = c.bar1;
+  if (c?.bar2) style['--bar2'] = c.bar2;
   const fill = c?.fill ?? c?.bar3;
   if (fill) {
-    (style as any)['--bar3'] = fill;
-    (style as any)['--on-fill'] = readableOn(fill);
+    style['--bar3'] = fill;
+    style['--on-fill'] = readableOn(fill);
   }
+  if (index !== undefined) style['--i'] = index;
 
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (disabled) return e.preventDefault();
@@ -49,11 +52,11 @@ export function Tile({ tile, onOpen, disabled }: Props) {
 
   return (
     <a
-      className={`tile${revealed ? ' is-revealed' : ''}`}
+      className={`tile${tile.title.length > 26 ? ' tile--long' : ''}${revealed ? ' is-revealed' : ''}`}
       href={tile.url}
       target="_blank"
       rel="noopener noreferrer"
-      style={style}
+      style={style as CSSProperties}
       onPointerDown={(e) => (pointer.current = e.pointerType)}
       onClick={onClick}
       onAuxClick={(e) => !disabled && e.button === 1 && api.track({ type: 'click', tileId: tile.id })}
@@ -66,11 +69,18 @@ export function Tile({ tile, onOpen, disabled }: Props) {
         <span className="tile__bar tile__bar--2" />
         <span className="tile__bar tile__bar--3" />
       </span>
-      <span className="tile__icon" aria-hidden="true">
+      {/* at rest: icon with the full title under it */}
+      <span className="tile__rest" aria-hidden="true">
         <span className="tile__icon-box">
-          <TileIcon icon={tile.icon} />
+          <TileIcon icon={tile.icon} size={28} />
         </span>
         <span className="tile__label">{tile.title}</span>
+      </span>
+      {/* active: icon on the left, details on the filled right side */}
+      <span className="tile__side" aria-hidden="true">
+        <span className="tile__icon-box tile__icon-box--lg">
+          <TileIcon icon={tile.icon} size={32} />
+        </span>
       </span>
       <span className="tile__panel" aria-hidden="true">
         <strong className="tile__title">{tile.title}</strong>

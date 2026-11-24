@@ -1,12 +1,51 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-surface="glass">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F1F1ED" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Navigation</title>
+    <script src="/boot.js"></script>
+    <style>
+      /* Opening screen: the tile mark lights up like a neon sign, then fades out (see public/boot.js). */
+      #splash { --sp-bg: #F1F1ED; --sp-a: #33332F; --sp-b: #F07A22; --sp-glow: 35%;
+        position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(60vmin 60vmin at 50% 50%, color-mix(in srgb, var(--sp-b) 12%, var(--sp-bg)), var(--sp-bg) 70%);
+        transition: opacity .4s ease; }
+      [data-theme="dark"]  #splash { --sp-bg: #26282C; --sp-a: #F2F2EF; --sp-b: #FF9A4D; --sp-glow: 60%; }
+      [data-theme="blue"]  #splash { --sp-bg: #EEF2F7; --sp-a: #16233A; --sp-b: #6F9BE6; }
+      [data-theme="green"] #splash { --sp-bg: #EDF1EC; --sp-a: #1F2D26; --sp-b: #5FB088; }
+      [data-theme="neon"]  #splash { --sp-bg: #14121F; --sp-a: #8C9BFF; --sp-b: #FF7AB8; --sp-glow: 90%; }
+      #splash.out { opacity: 0; pointer-events: none; }
+      #splash.quick { background: var(--sp-bg); }
+      #splash.quick svg { display: none; }
+      #splash svg { width: min(46vmin, 260px); height: auto; overflow: visible; fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+        animation: neon-in .5s cubic-bezier(.2, .8, .2, 1) both; }
+      #splash .a { stroke: var(--sp-a); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--sp-a) var(--sp-glow), transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--sp-a) var(--sp-glow), transparent)); }
+      #splash .b { stroke: var(--sp-b); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--sp-b) var(--sp-glow), transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--sp-b) var(--sp-glow), transparent)); }
+      #splash path { stroke-dasharray: 1; animation: neon-draw .6s cubic-bezier(.4, 0, .2, 1) .05s both; }
+      #splash .b path { animation-delay: .22s; }
+      @keyframes neon-in { from { opacity: 0; transform: scale(.86); } }
+      @keyframes neon-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+      @media (prefers-reduced-motion: reduce) { #splash svg, #splash path { animation: none; } }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <!-- a link tile: the outline first, then its two sweep bars -->
+        <g class="a">
+          <path pathLength="1" d="M48 58H152A18 18 0 0 1 170 76V124A18 18 0 0 1 152 142H48A18 18 0 0 1 30 124V76A18 18 0 0 1 48 58Z" />
+          <path pathLength="1" d="M52 86h22" /><path pathLength="1" d="M52 100h14" />
+        </g>
+        <g class="b">
+          <path pathLength="1" d="M92 142L118 58" />
+          <path pathLength="1" d="M112 142L138 58" />
+        </g>
+      </svg>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
