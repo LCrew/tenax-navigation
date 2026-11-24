@@ -18,8 +18,13 @@ const tooLarge = { error: 'File too large (max 10 MB)' };
 export const api = new Hono();
 
 api.get('/config', async (c) => {
-  c.header('Cache-Control', 'no-cache');
-  return c.json(await loadConfig());
+  // The answer depends on who asks (admin-only sections), so it must never be shared by a cache.
+  c.header('Cache-Control', 'private, no-cache');
+  c.header('Vary', 'Cookie');
+  const config = await loadConfig();
+  const s = await getSession(c);
+  if (s?.isAdmin) return c.json(config);
+  return c.json({ ...config, groups: config.groups.filter((g) => !g.adminOnly) });
 });
 
 api.get('/me', async (c) => {

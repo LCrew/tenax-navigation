@@ -40,6 +40,8 @@ export const GroupSchema = z.object({
   name: z.string().max(80),
   /** Optional company logo shown next to the section name. */
   logoUrl: uploadPath.optional(),
+  /** Only administrators see this section; the server leaves it out for everyone else. */
+  adminOnly: z.boolean().optional(),
   tiles: z.array(TileSchema).max(200),
 });
 

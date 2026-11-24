@@ -3,11 +3,9 @@ import { Download, Upload } from 'lucide-react';
 import { ConfigSchema, type Config } from '../../../shared/schema';
 import { api } from '../api';
 import { THEMES } from '../theme';
-import { Card, ColorField, Field, Modal } from './Modal';
+import { Card, Field, Modal } from './Modal';
 
 type Props = { config: Config; onChange: (c: Config) => void; onClose: () => void };
-
-const isHex = (v?: string): v is string => !!v && /^#[0-9a-fA-F]{6}$/.test(v);
 
 export function SettingsPanel({ config, onChange, onClose }: Props) {
   const site = config.site;
@@ -16,13 +14,6 @@ export function SettingsPanel({ config, onChange, onClose }: Props) {
   const logoRef = useRef<HTMLInputElement>(null);
 
   const setSite = (patch: Partial<Config['site']>) => onChange({ ...config, site: { ...site, ...patch } });
-  const setTheme = (patch: Partial<Config['site']['theme']>) => setSite({ theme: { ...site.theme, ...patch } });
-  const setBar = (i: number, v?: string) => {
-    if (!isHex(v)) return;
-    const bars = [...site.theme.barColors] as Config['site']['theme']['barColors'];
-    bars[i] = v;
-    setTheme({ barColors: bars });
-  };
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -121,15 +112,6 @@ export function SettingsPanel({ config, onChange, onClose }: Props) {
               ))}
             </div>
           </div>
-        </Card>
-
-        <Card label="Tile hover colours">
-          <div className="row row--3">
-            <ColorField label="Sweep bar 1" value={site.theme.barColors[0]} onChange={(v) => setBar(0, v)} />
-            <ColorField label="Sweep bar 2" value={site.theme.barColors[1]} onChange={(v) => setBar(1, v)} />
-            <ColorField label="Panel fill" value={site.theme.barColors[2]} onChange={(v) => setBar(2, v)} />
-          </div>
-          <span className="field__hint">Hover a tile to see them. Single tiles can override these in their own settings.</span>
         </Card>
 
         <Card label="Backup">

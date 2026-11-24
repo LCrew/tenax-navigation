@@ -25,7 +25,7 @@ function getOidcConfig() {
 }
 
 export async function getSession(c: Parameters<MiddlewareHandler>[0]): Promise<Session | null> {
-  if (env.devNoAuth) return { oid: 'dev', name: 'Dev Admin', isAdmin: true, exp: Infinity };
+  if (env.devNoAuth) return { oid: 'dev', name: env.devAdmin ? 'Dev Admin' : 'Dev User', isAdmin: env.devAdmin, exp: Infinity };
   const raw = await getSignedCookie(c, env.sessionSecret, SESSION_COOKIE);
   if (!raw) return null;
   try {

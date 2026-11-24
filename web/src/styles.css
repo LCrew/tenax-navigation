@@ -26,7 +26,6 @@
   --plate: #fff;
 
   /* app: hover-bar colours and column count (set from the page settings in theme.ts) */
-  --bar1: #F07A22; --bar2: #33332F; --bar3: #33332F; --on-fill: #fff;
   --columns: 3;
 
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
@@ -345,6 +344,12 @@ select.input {
 .group__name { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.025em; line-height: 1.15; }
 .group__head--edit { flex-wrap: wrap; gap: 8px; }
 .group__name-input { max-width: 380px; flex: 1 1 220px; font-weight: 600; }
+/* marks a section only administrators can see (the server hides it from everyone else) */
+.admin-tag {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 14px;
+  background: var(--pillbg); color: var(--muted); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+:root[data-surface="glass"] .admin-tag { background: var(--glass); box-shadow: var(--bead); }
 
 /* company logo on a small plate, so any logo reads on every theme */
 .logo-plate {
@@ -505,7 +510,7 @@ button.logo-plate { cursor: pointer; border: 0; font: inherit; }
 .viewer__title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .viewer__title-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--tile); display: grid; place-items: center; flex: none; box-shadow: var(--bead, none); }
 .viewer__title strong { font-size: 16px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.viewer__url { font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.viewer__url { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .viewer__hint { font-size: 13px; color: var(--faint); white-space: nowrap; }
 .viewer__body { position: relative; flex: 1; min-height: 0; }
 .viewer__body iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }

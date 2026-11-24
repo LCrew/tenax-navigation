@@ -38,12 +38,13 @@ Accounts from other organizations are rejected by Microsoft, because the app is 
 
 ## Using it
 
-- **Hover a tile** (or focus it with Tab): bars sweep in, then the description and URL appear. **Click** to open the tool. On touch devices the first tap reveals the tile and the second tap opens it.
+- **Hover a tile** (or focus it with Tab): the icon glides to the left and a pane of glass slides in with the description and URL. **Click** to open the tool. On touch devices the first tap reveals the tile and the second tap opens it.
 - **Opening the site** sends you to Microsoft sign-in, then back to the page you asked for. Usually there's no prompt, because you're already signed in to Microsoft 365. The session lasts 8 h, after which a reload silently signs you in again. **Sign out** (top right) shows a *Signed out* page.
 - **Admins** also see **Edit page** and **Statistics** in the top bar. **Edit page**:
   - Drag tiles to reorder them, and use ✎ / 🗑 on each tile.
-  - **+ Section** adds a section. Sections can be renamed, moved and deleted.
-  - **Settings**: title, logo, color mode, column count, theme colors, the three hover-bar colors, and JSON import/export.
+  - **+ Section** adds a section. Sections can be renamed, moved and deleted, and get an optional company logo.
+  - **Everyone / Admins only** on each section: an admin-only section is left out of the page for everyone without the `Nav.Admin` role. The server removes it before sending the page, so normal users can't find those links in the browser either.
+  - **Settings**: title, logo, default theme, column count, and JSON import/export. A tile can have its own highlight colour for its hover pane.
   - **Save** publishes to everyone. **Cancel** discards the changes.
 - **Open as** per tile:
   - `Auto` (default): opens inside the page unless the framing check found the site blocks it.
@@ -76,6 +77,7 @@ npm run dev -w server   # :8080, DEV_NO_AUTH=1 → everyone is admin, data in ./
 npm run dev -w web      # :5173, proxies /api /auth /uploads to :8080
 ```
 `DEV_NO_AUTH` refuses to start when `NODE_ENV=production`.
+Start the server with `DEV_ADMIN=0` to see the page as a normal user (admin-only sections hidden).
 
 ## Security notes
 

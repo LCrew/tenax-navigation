@@ -23,15 +23,6 @@ const THEME_BG: Record<ThemeName, string> = {
   neon: '#14121F',
 };
 
-export function readableOn(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#12142a' : '#ffffff';
-}
-
 const store = {
   get(key: string) {
     try {
@@ -82,8 +73,6 @@ export function applyTheme(site: Config['site']) {
   const t = site.theme;
   const s = root.style;
   s.setProperty('--accent', t.accent);
-  t.barColors.forEach((c, i) => s.setProperty(`--bar${i + 1}`, c));
-  s.setProperty('--on-fill', readableOn(t.barColors[2]));
   s.setProperty('--columns', String(site.columns));
   document.title = site.title;
 }

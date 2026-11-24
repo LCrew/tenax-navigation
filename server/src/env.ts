@@ -18,6 +18,8 @@ export const env = {
   publicUrl: (process.env.PUBLIC_URL ?? 'http://localhost:5173').replace(/\/$/, ''),
   trustProxy: process.env.TRUST_PROXY === '1',
   devNoAuth,
+  /** DEV_NO_AUTH only: DEV_ADMIN=0 signs you in as a normal user, to see what non-admins see. */
+  devAdmin: process.env.DEV_ADMIN !== '0',
   sessionSecret: devNoAuth ? 'dev-only-insecure-secret-dev-only-insecure' : required('SESSION_SECRET'),
   oidc: devNoAuth
     ? null

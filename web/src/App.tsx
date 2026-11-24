@@ -124,6 +124,11 @@ export function App() {
         const { logoUrl: _old, ...rest } = g;
         return logoUrl ? { ...rest, logoUrl } : rest;
       }),
+    setGroupAdminOnly: (groupId, adminOnly) =>
+      mapGroup(groupId, (g) => {
+        const { adminOnly: _old, ...rest } = g;
+        return adminOnly ? { ...rest, adminOnly: true } : rest;
+      }),
     deleteGroup: (groupId) => update((c) => ({ ...c, groups: c.groups.filter((g) => g.id !== groupId) })),
     moveGroup: (groupId, dir) =>
       update((c) => {
@@ -220,7 +225,7 @@ export function App() {
           tile={editor.tile}
           groupId={editor.groupId}
           groups={draft.groups}
-          barColors={draft.site.theme.barColors}
+          accent={draft.site.theme.accent}
           onSave={saveTile}
           onClose={() => setEditor(null)}
         />

@@ -1,7 +1,6 @@
 import { useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { Tile as TileT } from '../../../shared/schema';
 import { api } from '../api';
-import { readableOn } from '../theme';
 import { TileIcon } from './TileIcon';
 import './Tile.css';
 
@@ -27,14 +26,11 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
   const pointer = useRef<string>('mouse');
 
   const style: Record<string, string | number> = {};
+  // Optional highlight colour for this tile (edge line and tint of the hover pane). Older configs stored
+  // the old sweep/fill colours; the first one set is used.
   const c = tile.colors;
-  if (c?.bar1) style['--bar1'] = c.bar1;
-  if (c?.bar2) style['--bar2'] = c.bar2;
-  const fill = c?.fill ?? c?.bar3;
-  if (fill) {
-    style['--bar3'] = fill;
-    style['--on-fill'] = readableOn(fill);
-  }
+  const hl = c?.bar1 ?? c?.fill ?? c?.bar3;
+  if (hl) style['--hl'] = hl;
   if (index !== undefined) style['--i'] = index;
 
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -64,23 +60,15 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
       aria-label={`${tile.title}${tile.description ? ` – ${tile.description}` : ''}`}
       tabIndex={disabled ? -1 : undefined}
     >
-      <span className="tile__bars" aria-hidden="true">
-        <span className="tile__bar tile__bar--1" />
-        <span className="tile__bar tile__bar--2" />
-        <span className="tile__bar tile__bar--3" />
+      {/* active: a brighter pane of glass slides in from the right, a glint passes over the tile */}
+      <span className="tile__pane" aria-hidden="true" />
+      <span className="tile__glint" aria-hidden="true" />
+      {/* one icon: centred above the title at rest, glides to the left side when active */}
+      <span className="tile__icon-box" aria-hidden="true">
+        <TileIcon icon={tile.icon} size={28} />
       </span>
-      {/* at rest: icon with the full title under it */}
-      <span className="tile__rest" aria-hidden="true">
-        <span className="tile__icon-box">
-          <TileIcon icon={tile.icon} size={28} />
-        </span>
-        <span className="tile__label">{tile.title}</span>
-      </span>
-      {/* active: icon on the left, details on the filled right side */}
-      <span className="tile__side" aria-hidden="true">
-        <span className="tile__icon-box tile__icon-box--lg">
-          <TileIcon icon={tile.icon} size={32} />
-        </span>
+      <span className="tile__label" aria-hidden="true">
+        {tile.title}
       </span>
       <span className="tile__panel" aria-hidden="true">
         <strong className="tile__title">{tile.title}</strong>

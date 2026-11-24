@@ -2,7 +2,7 @@ import { useRef, useState, type MouseEvent } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDown, ArrowUp, GripVertical, ImagePlus, LoaderCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, ImagePlus, LoaderCircle, Lock, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
 import type { Group, Tile as TileT } from '../../../shared/schema';
 import { api } from '../api';
 import { Tile } from './Tile';
@@ -13,6 +13,7 @@ export type GridActions = {
   moveTile: (groupId: string, fromId: string, toId: string) => void;
   renameGroup: (groupId: string, name: string) => void;
   setGroupLogo: (groupId: string, logoUrl: string | undefined) => void;
+  setGroupAdminOnly: (groupId: string, adminOnly: boolean) => void;
   deleteGroup: (groupId: string) => void;
   moveGroup: (groupId: string, dir: -1 | 1) => void;
 };
@@ -134,7 +135,7 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
   return (
     <div className="groups">
       {groups.map((g, gi) => (
-        <section key={g.id} className="group" aria-label={g.name || 'Links'}>
+        <section key={g.id} className={`group${g.adminOnly ? ' group--admin' : ''}`} aria-label={g.name || 'Links'}>
           {editing ? (
             <div className="group__head group__head--edit">
               <LogoSlot group={g} actions={actions} />
@@ -145,6 +146,15 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
                 onChange={(e) => actions.renameGroup(g.id, e.target.value)}
                 aria-label="Section name"
               />
+              <button
+                className={`btn btn--sm${g.adminOnly ? ' btn--primary' : ''}`}
+                aria-pressed={!!g.adminOnly}
+                onClick={() => actions.setGroupAdminOnly(g.id, !g.adminOnly)}
+                title={g.adminOnly ? 'Only administrators see this section. Click to show it to everyone.' : 'Everyone sees this section. Click to show it to administrators only.'}
+              >
+                {g.adminOnly ? <Lock size={15} /> : <Users size={15} />}
+                {g.adminOnly ? 'Admins only' : 'Everyone'}
+              </button>
               <button className="icon-btn" disabled={gi === 0} onClick={() => actions.moveGroup(g.id, -1)} title="Move section up" aria-label="Move section up">
                 <ArrowUp size={16} />
               </button>
@@ -167,7 +177,7 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
               </button>
             </div>
           ) : (
-            (g.name || g.logoUrl) && (
+            (g.name || g.logoUrl || g.adminOnly) && (
               <div className="group__head">
                 {g.logoUrl && (
                   <span className="logo-plate">
@@ -175,6 +185,12 @@ export function TileGrid({ groups, editing, onOpen, actions }: Props) {
                   </span>
                 )}
                 {g.name && <h2 className="group__name">{g.name}</h2>}
+                {g.adminOnly && (
+                  <span className="admin-tag" title="Only administrators see this section">
+                    <Lock size={13} />
+                    Admins only
+                  </span>
+                )}
               </div>
             )
           )}

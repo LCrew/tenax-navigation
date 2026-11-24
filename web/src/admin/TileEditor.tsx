@@ -10,7 +10,8 @@ type Props = {
   tile: TileT | null;
   groupId: string;
   groups: Group[];
-  barColors: [string, string, string];
+  /** the page's accent colour, shown as the default highlight */
+  accent: string;
   onSave: (groupId: string, tile: TileT) => void;
   onClose: () => void;
 };
@@ -29,19 +30,17 @@ function EmbedStatus({ embeddable }: { embeddable?: boolean }) {
   return embeddable ? <span className="status status--ok">Opens inside the page</span> : <span className="status status--bad">Opens in a new tab</span>;
 }
 
-export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }: Props) {
+export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<TileT>(tile ?? blank());
   const [targetGroup, setTargetGroup] = useState(groupId);
   const [error, setError] = useState<string | null>(null);
   const [probe, setProbe] = useState<{ busy: boolean; reason?: string }>({ busy: false });
 
   const set = <K extends keyof TileT>(k: K, v: TileT[K]) => setDraft((d) => ({ ...d, [k]: v }));
-  const setColor = (k: 'bar1' | 'bar2' | 'fill', v?: string) =>
-    setDraft((d) => {
-      const colors = { ...d.colors, [k]: v };
-      if (!v) delete colors[k];
-      return { ...d, colors: Object.keys(colors).length ? colors : undefined };
-    });
+  // One highlight colour per tile. Older configs may still hold the old sweep/fill colours; setting or
+  // resetting the highlight replaces them.
+  const highlight = draft.colors?.bar1 ?? draft.colors?.fill ?? draft.colors?.bar3;
+  const setHighlight = (v?: string) => setDraft((d) => ({ ...d, colors: v ? { bar1: v } : undefined }));
 
   const save = async () => {
     const parsed = TileSchema.safeParse(draft);
@@ -123,6 +122,7 @@ export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name || '(unnamed section)'}
+                    {g.adminOnly ? ' · admins only' : ''}
                   </option>
                 ))}
               </select>
@@ -141,12 +141,9 @@ export function TileEditor({ tile, groupId, groups, barColors, onSave, onClose }
           <IconPicker value={draft.icon} onChange={(i) => set('icon', i)} />
         </Card>
 
-        <Card label="Hover colours (optional)">
-          <div className="row row--3">
-            <ColorField label="Sweep bar 1" value={draft.colors?.bar1} placeholder={barColors[0]} onChange={(v) => setColor('bar1', v)} />
-            <ColorField label="Sweep bar 2" value={draft.colors?.bar2} placeholder={barColors[1]} onChange={(v) => setColor('bar2', v)} />
-            <ColorField label="Panel fill" value={draft.colors?.fill} placeholder={barColors[2]} onChange={(v) => setColor('fill', v)} />
-          </div>
+        <Card label="Highlight colour (optional)">
+          <ColorField label="Highlight" value={highlight} placeholder={accent} onChange={setHighlight} />
+          <span className="field__hint">Colours the edge and tint of the pane that slides in when you hover this tile. Leave it empty to follow the theme.</span>
         </Card>
       </div>
     </Modal>
