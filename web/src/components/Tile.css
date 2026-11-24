@@ -3,7 +3,9 @@
  *   rest   – icon in a glass bead, the full title under it (wraps to two lines, never cut after a few letters)
  *   active – (hover / keyboard focus / first tap) the same icon glides to the left, a brighter pane of glass
  *            with a slanted edge slides in from the right and shows the details, and a glint passes over.
- * Only transform and opacity are animated. Everything uses the page font.
+ * Only transform and opacity are animated, so the GPU does all of it and Chrome never repaints mid-hover
+ * (an animated box-shadow, for example, would drag the whole hover onto the main thread and stutter on
+ * slower Windows machines). Everything uses the page font.
  */
 .tile {
   --skew: -16deg;
@@ -20,7 +22,6 @@
   min-width: 0; /* without these, aspect-ratio + min-height push the tile wider than its grid cell */
   aspect-ratio: 3.2 / 1;
   min-height: 132px;
-  overflow: hidden;
   isolation: isolate;
   border-radius: 22px;
   border: 1px solid transparent;
@@ -28,8 +29,26 @@
   color: var(--ink);
   text-decoration: none;
   box-shadow: 0 1px 2px rgba(40, 40, 36, .08);
-  transition: transform .2s var(--ease), box-shadow .25s ease, border-color .25s ease, background-color .2s ease;
+  transition: transform .2s var(--ease);
   -webkit-tap-highlight-color: transparent;
+}
+/* the lifted shadow, faded in with opacity instead of animating box-shadow */
+.tile::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 16px 36px rgba(30, 30, 28, .15);
+  opacity: 0;
+  transition: opacity .25s ease;
+  pointer-events: none;
+}
+.tile__clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 21px; /* the tile's 22 px minus its 1 px border */
+  overflow: hidden;
 }
 :root[data-surface="glass"] .tile {
   background: var(--glass);
@@ -84,10 +103,10 @@
 .tile__pane {
   position: absolute;
   z-index: 0;
-  top: -12%;
-  bottom: -12%;
+  top: -1px;
+  bottom: -1px;
   left: var(--split);
-  right: -30cqw;
+  right: -12cqw;
   background: var(--pane);
   border-left: 2px solid var(--hl);
   transform: translateX(105cqw) skewX(var(--skew));
@@ -177,16 +196,22 @@
 }
 
 /* ---------- active (hover / keyboard focus / tapped) ---------- */
-.tile:is(:focus-visible, .is-revealed) { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(30, 30, 28, .16); }
+.tile:is(:focus-visible, .is-revealed) { transform: translateY(-2px); }
+.tile:is(:focus-visible, .is-revealed)::after { opacity: 1; }
+:root[data-surface="glass"] .tile:is(:focus-visible, .is-revealed) { background: var(--glass-hover); }
 @media (hover: hover) {
-  .tile:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(30, 30, 28, .16); }
-  :root[data-surface="glass"] .tile:hover { background: var(--glass-hover); box-shadow: var(--glass-shine), 0 16px 36px rgba(30, 30, 28, .14); }
+  .tile:hover { transform: translateY(-2px); }
+  .tile:hover::after { opacity: 1; }
+  :root[data-surface="glass"] .tile:hover { background: var(--glass-hover); }
+  /* Prepare the moving parts as GPU layers as soon as the pointer is over a section, so the first frames of
+     a hover are not spent creating them, and nothing snaps or re-renders when the hover ends. */
+  .grid:hover :is(.tile, .tile__pane, .tile__glint, .tile__icon-box) { will-change: transform; }
+  .grid:hover :is(.tile__label, .tile__panel) { will-change: transform, opacity; }
 }
-:root[data-surface="glass"] .tile:is(:focus-visible, .is-revealed) { background: var(--glass-hover); box-shadow: var(--glass-shine), 0 16px 36px rgba(30, 30, 28, .14); }
 
 .tile:is(:hover, :focus-visible, .is-revealed) .tile__icon-box {
-  /* from the middle of the tile to the middle of the left side, and a little larger */
-  transform: translate(calc(var(--split) / 2 - 50cqw), var(--lift)) scale(1.12);
+  /* from the middle of the tile to the middle of the left side (no scaling: a scaled bitmap looks soft) */
+  transform: translate(calc(var(--split) / 2 - 50cqw), var(--lift));
 }
 .tile:is(:hover, :focus-visible, .is-revealed) .tile__label { opacity: 0; transform: translateX(-10cqw); transition-duration: .14s, .42s; }
 .tile:is(:hover, :focus-visible, .is-revealed) .tile__pane { transform: translateX(0) skewX(var(--skew)); transition-delay: .04s; }

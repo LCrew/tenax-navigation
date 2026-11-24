@@ -381,6 +381,7 @@ button.logo-plate { cursor: pointer; border: 0; font: inherit; }
 }
 @media (max-width: 600px) { .grid { grid-template-columns: 1fr; --gap: 12px; } }
 .grid > * { min-width: 0; animation: rise-in .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.grid > .is-in { animation: none; }
 
 /* edit mode: tile with tools */
 .tile-edit { position: relative; touch-action: none; }

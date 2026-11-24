@@ -23,6 +23,9 @@ export function prettyUrl(url: string) {
 
 export function Tile({ tile, onOpen, disabled, index }: Props) {
   const [revealed, setRevealed] = useState(false);
+  // Chrome won't run the hover lift on the GPU while the finished entrance animation is still attached,
+  // so drop it once it has played.
+  const [entered, setEntered] = useState(false);
   const pointer = useRef<string>('mouse');
 
   const style: Record<string, string | number> = {};
@@ -48,32 +51,35 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
 
   return (
     <a
-      className={`tile${tile.title.length > 26 ? ' tile--long' : ''}${revealed ? ' is-revealed' : ''}`}
+      className={`tile${tile.title.length > 26 ? ' tile--long' : ''}${revealed ? ' is-revealed' : ''}${entered ? ' is-in' : ''}`}
       href={tile.url}
       target="_blank"
       rel="noopener noreferrer"
       style={style as CSSProperties}
       onPointerDown={(e) => (pointer.current = e.pointerType)}
+      onAnimationEnd={(e) => e.target === e.currentTarget && setEntered(true)}
       onClick={onClick}
       onAuxClick={(e) => !disabled && e.button === 1 && api.track({ type: 'click', tileId: tile.id })}
       onBlur={() => setRevealed(false)}
       aria-label={`${tile.title}${tile.description ? ` – ${tile.description}` : ''}`}
       tabIndex={disabled ? -1 : undefined}
     >
-      {/* active: a brighter pane of glass slides in from the right, a glint passes over the tile */}
-      <span className="tile__pane" aria-hidden="true" />
-      <span className="tile__glint" aria-hidden="true" />
-      {/* one icon: centred above the title at rest, glides to the left side when active */}
-      <span className="tile__icon-box" aria-hidden="true">
-        <TileIcon icon={tile.icon} size={28} />
-      </span>
-      <span className="tile__label" aria-hidden="true">
-        {tile.title}
-      </span>
-      <span className="tile__panel" aria-hidden="true">
-        <strong className="tile__title">{tile.title}</strong>
-        {tile.description && <span className="tile__desc">{tile.description}</span>}
-        <span className="tile__url">{prettyUrl(tile.url)}</span>
+      {/* the clip keeps the moving parts inside the rounded tile, while the tile's own hover shadow
+          (::after) stays outside it and can be faded with opacity alone */}
+      <span className="tile__clip" aria-hidden="true">
+        {/* active: a brighter pane of glass slides in from the right, a glint passes over the tile */}
+        <span className="tile__pane" />
+        <span className="tile__glint" />
+        {/* one icon: centred above the title at rest, glides to the left side when active */}
+        <span className="tile__icon-box">
+          <TileIcon icon={tile.icon} size={28} />
+        </span>
+        <span className="tile__label">{tile.title}</span>
+        <span className="tile__panel">
+          <strong className="tile__title">{tile.title}</strong>
+          {tile.description && <span className="tile__desc">{tile.description}</span>}
+          <span className="tile__url">{prettyUrl(tile.url)}</span>
+        </span>
       </span>
     </a>
   );
