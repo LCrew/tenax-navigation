@@ -7,6 +7,7 @@ import { TileEditor } from './admin/TileEditor';
 import { api, newId, type Me } from './api';
 import { TileGrid, type GridActions } from './components/TileGrid';
 import { Viewer } from './components/Viewer';
+import { WarningDialog } from './components/WarningDialog';
 import { applyTheme, watchScheme } from './theme';
 
 let viewTracked = false;
@@ -25,6 +26,8 @@ export function App() {
   const [me, setMe] = useState<Me>({ signedIn: false, isAdmin: false });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState(openIdFromHash);
+  /** tile whose warning was accepted for the current opening; cleared whenever the address changes */
+  const [accepted, setAccepted] = useState<string | null>(null);
   const [editor, setEditor] = useState<{ groupId: string; tile: TileT | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -47,7 +50,10 @@ export function App() {
       api.track({ type: 'view' });
     }
     api.me().then(setMe, () => {});
-    const onHash = () => setOpenId(openIdFromHash());
+    const onHash = () => {
+      setOpenId(openIdFromHash());
+      setAccepted(null);
+    };
     const onToast = (e: Event) => setToast((e as CustomEvent<string>).detail);
     window.addEventListener('hashchange', onHash);
     document.addEventListener('toast', onToast);
@@ -93,7 +99,8 @@ export function App() {
   }, [dirty]);
 
   const openTile = useCallback((tile: TileT, e: MouseEvent<HTMLAnchorElement>) => {
-    if (shouldOpenInNewTab(tile)) return; // anchor's target=_blank handles it
+    // anchor's target=_blank handles it; a tile with a warning always shows the warning here first
+    if (!tile.warning && shouldOpenInNewTab(tile)) return;
     e.preventDefault();
     location.hash = `/open/${encodeURIComponent(tile.id)}`;
   }, []);
@@ -102,6 +109,11 @@ export function App() {
     else history.replaceState(null, '', location.pathname);
     setOpenId(null);
   }, []);
+  const acceptWarning = (tile: TileT) => {
+    if (!shouldOpenInNewTab(tile)) return setAccepted(tile.id);
+    window.open(tile.url, '_blank', 'noopener,noreferrer');
+    closeViewer();
+  };
 
   const update = (fn: (c: Config) => Config) => setDraft((d) => (d ? fn(d) : d));
   const mapGroup = (id: string, fn: (g: Config['groups'][number]) => Config['groups'][number]) =>
@@ -175,10 +187,13 @@ export function App() {
   if (!shown) return <div className="center" aria-busy="true"><span className="spinner" /></div>;
 
   const openTileObj = openId ? shown.groups.flatMap((g) => g.tiles).find((t) => t.id === openId) : undefined;
+  // a tile with a warning shows the warning first, its page only once accepted
+  const warnTile = openTileObj?.warning && accepted !== openTileObj.id ? openTileObj : undefined;
+  const viewTile = warnTile ? undefined : openTileObj;
 
   return (
     <>
-      <div className={`cbar${compact && !openTileObj ? ' on' : ''}`} aria-hidden={!compact}>
+      <div className={`cbar${compact && !viewTile ? ' on' : ''}`} aria-hidden={!compact}>
         <div className="cbar__inner">
           {shown.site.logoUrl && <img src={shown.site.logoUrl} alt="" className="cbar__logo" />}
           <span className="cbar__title">{shown.site.title}</span>
@@ -190,7 +205,7 @@ export function App() {
         </div>
       </div>
 
-      <div className={`page${openTileObj ? ' page--behind' : ''}`} aria-hidden={!!openTileObj}>
+      <div className={`page${viewTile ? ' page--behind' : ''}`} aria-hidden={!!openTileObj && !editing}>
         <header className="topbar">
           <div className="brand">
             {shown.site.logoUrl && <img src={shown.site.logoUrl} alt="" className="brand__logo" />}
@@ -218,7 +233,16 @@ export function App() {
         </main>
       </div>
 
-      {openTileObj && !editing && <Viewer tile={openTileObj} onClose={closeViewer} />}
+      {viewTile && !editing && <Viewer tile={viewTile} onClose={closeViewer} />}
+      {warnTile?.warning && !editing && (
+        <WarningDialog
+          key={warnTile.id}
+          tile={warnTile}
+          warning={warnTile.warning}
+          onAccept={() => acceptWarning(warnTile)}
+          onCancel={closeViewer}
+        />
+      )}
 
       {editor && draft && (
         <TileEditor

@@ -22,6 +22,23 @@ export const IconSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('upload'), value: uploadPath }),
 ]);
 
+/** Severity of a tile's warning, lowest first (the usual NOTICE / CAUTION / WARNING / DANGER signal words). */
+export const WARNING_LEVELS = ['notice', 'caution', 'warning', 'danger'] as const;
+
+/** A notice people must read and accept before the tile's page opens. */
+export const WarningSchema = z.object({
+  level: z.enum(WARNING_LEVELS),
+  /** Heading; empty means the level's name ("Danger"). */
+  title: z.string().trim().max(80).optional(),
+  message: z.string().trim().min(1, 'Write the warning text').max(2000),
+  /** Empty means the level's default icon. */
+  icon: IconSchema.optional(),
+  /** Text of the checkbox people tick; empty means "I have read and understand this warning". */
+  confirmText: z.string().trim().max(120).optional(),
+  /** Seconds the open button stays locked, so the text gets read. */
+  waitSeconds: z.number().int().min(0).max(60).default(0),
+});
+
 export const TileSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
   title: z.string().min(1).max(80),
@@ -33,6 +50,8 @@ export const TileSchema = z.object({
     .optional(),
   openMode: z.enum(['auto', 'iframe', 'newTab']).default('auto'),
   embeddable: z.boolean().optional(),
+  /** Shown before the page opens; people must accept it first. */
+  warning: WarningSchema.optional(),
 });
 
 export const GroupSchema = z.object({
@@ -67,6 +86,8 @@ export const ConfigSchema = z.object({
 
 export type Icon = z.infer<typeof IconSchema>;
 export type Tile = z.infer<typeof TileSchema>;
+export type Warning = z.infer<typeof WarningSchema>;
+export type WarningLevel = Warning['level'];
 export type Group = z.infer<typeof GroupSchema>;
 export type Theme = z.infer<typeof ThemeSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

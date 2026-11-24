@@ -2,6 +2,8 @@ import { useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { Tile as TileT } from '../../../shared/schema';
 import { api } from '../api';
 import { TileIcon } from './TileIcon';
+import { LEVELS, warningIcon } from './warning';
+import './WarningDialog.css';
 import './Tile.css';
 
 type Props = {
@@ -52,8 +54,9 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
   return (
     <a
       className={`tile${tile.title.length > 26 ? ' tile--long' : ''}${revealed ? ' is-revealed' : ''}${entered ? ' is-in' : ''}`}
-      href={tile.url}
-      target="_blank"
+      // A tile with a warning links to its warning on this page, so even "open in new tab" shows it first.
+      href={tile.warning ? `#/open/${encodeURIComponent(tile.id)}` : tile.url}
+      target={tile.warning ? undefined : '_blank'}
       rel="noopener noreferrer"
       style={style as CSSProperties}
       onPointerDown={(e) => (pointer.current = e.pointerType)}
@@ -61,12 +64,17 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
       onClick={onClick}
       onAuxClick={(e) => !disabled && e.button === 1 && api.track({ type: 'click', tileId: tile.id })}
       onBlur={() => setRevealed(false)}
-      aria-label={`${tile.title}${tile.description ? ` – ${tile.description}` : ''}`}
+      aria-label={`${tile.title}${tile.description ? ` – ${tile.description}` : ''}${tile.warning ? ` (${LEVELS[tile.warning.level].label.toLowerCase()} – read before opening)` : ''}`}
       tabIndex={disabled ? -1 : undefined}
     >
       {/* the clip keeps the moving parts inside the rounded tile, while the tile's own hover shadow
           (::after) stays outside it and can be faded with opacity alone */}
       <span className="tile__clip" aria-hidden="true">
+        {tile.warning && (
+          <span className={`tile__warn lvl--${tile.warning.level}`} title={`${LEVELS[tile.warning.level].label}: read before opening`}>
+            <TileIcon icon={warningIcon(tile.warning)} size={15} />
+          </span>
+        )}
         {/* active: a brighter pane of glass slides in from the right, a glint passes over the tile */}
         <span className="tile__pane" />
         <span className="tile__glint" />

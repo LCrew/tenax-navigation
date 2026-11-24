@@ -5,6 +5,7 @@ import { api, newId } from '../api';
 import { Tile } from '../components/Tile';
 import { IconPicker } from './IconPicker';
 import { Card, ColorField, Field, Modal } from './Modal';
+import { WarningEditor } from './WarningEditor';
 
 type Props = {
   tile: TileT | null;
@@ -45,7 +46,7 @@ export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: P
   const save = async () => {
     const parsed = TileSchema.safeParse(draft);
     if (!parsed.success) {
-      setError(parsed.error.issues.map((i) => `${i.path.join('.') || 'tile'}: ${i.message}`).join(' · '));
+      setError(parsed.error.issues.map((i) => (i.path[0] === 'warning' ? `Warning: ${i.message}` : `${i.path.join('.') || 'tile'}: ${i.message}`)).join(' · '));
       return;
     }
     let result = parsed.data;
@@ -144,6 +145,10 @@ export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: P
         <Card label="Highlight colour (optional)">
           <ColorField label="Highlight" value={highlight} placeholder={accent} onChange={setHighlight} />
           <span className="field__hint">Colours the edge and tint of the pane that slides in when you hover this tile. Leave it empty to follow the theme.</span>
+        </Card>
+
+        <Card label="Warning before opening">
+          <WarningEditor tile={draft} value={draft.warning} onChange={(w) => set('warning', w)} />
         </Card>
       </div>
     </Modal>
