@@ -9,6 +9,7 @@ import { auth, requireLogin } from './auth';
 import { loadConfig } from './config-store';
 import { env } from './env';
 import { api, uploadsDir } from './routes/api';
+import { flushAudit, loadAudit } from './audit';
 import { flushStats, loadStats } from './stats';
 
 await fs.mkdir(uploadsDir, { recursive: true });
@@ -94,13 +95,14 @@ app.get('*', async (c) => {
 
 await loadConfig();
 await loadStats();
+await loadAudit();
 const server = serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.log(`Navigation server listening on :${info.port}${env.devNoAuth ? ' (DEV_NO_AUTH: everyone is admin)' : ''}`);
 });
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sig, async () => {
-    await flushStats();
+    await Promise.all([flushStats(), flushAudit()]);
     server.close();
     process.exit(0);
   });

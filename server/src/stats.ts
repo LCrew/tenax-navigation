@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from './env';
 
-// Anonymous usage counters, aggregated per calendar day. No IPs or user identities are stored.
+// Usage counters, aggregated per calendar day, with no identities (per-person activity is in audit.ts).
 type Day = { views: number; clicks: Record<string, number> };
 type Stats = { days: Record<string, Day> };
 

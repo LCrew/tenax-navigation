@@ -147,6 +147,22 @@ export function WarningEditor({ tile, value, onChange }: Props) {
             </Field>
           </div>
 
+          <ButtonField label="Can be acknowledged">
+            <div className="seg">
+              {[false, true].map((v) => (
+                <button key={String(v)} type="button" className={!!w.acknowledge === v ? 'on' : ''} aria-pressed={!!w.acknowledge === v} onClick={() => set('acknowledge', v || undefined)}>
+                  {v ? 'Yes, once per person' : 'No, every time'}
+                </button>
+              ))}
+            </div>
+            <span className="field__hint">
+              {w.acknowledge
+                ? 'People who accept it once aren’t asked again, until you change the level, heading, text or checkbox text.'
+                : 'Shown every time the page is opened.'}{' '}
+              Every acceptance is saved per person and listed in Statistics.
+            </span>
+          </ButtonField>
+
           <div>
             <button type="button" className="btn btn--sm" onClick={() => setPreview(true)} disabled={!w.message.trim()}>
               <Eye size={16} /> Preview warning

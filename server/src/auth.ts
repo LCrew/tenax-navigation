@@ -3,7 +3,8 @@ import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import * as oidc from 'openid-client';
 import { env } from './env';
 
-export type Session = { oid: string; name: string; isAdmin: boolean; exp: number };
+/** email: the sign-in name (UPN), missing on sessions from before it was stored */
+export type Session = { oid: string; name: string; email?: string; isAdmin: boolean; exp: number };
 
 const SESSION_COOKIE = 'nav_session';
 const LOGIN_COOKIE = 'nav_login';
@@ -25,7 +26,11 @@ function getOidcConfig() {
 }
 
 export async function getSession(c: Parameters<MiddlewareHandler>[0]): Promise<Session | null> {
-  if (env.devNoAuth) return { oid: 'dev', name: env.devAdmin ? 'Dev Admin' : 'Dev User', isAdmin: env.devAdmin, exp: Infinity };
+  if (env.devNoAuth) {
+    return env.devAdmin
+      ? { oid: 'dev-admin', name: 'Dev Admin', email: 'admin@dev.local', isAdmin: true, exp: Infinity }
+      : { oid: 'dev-user', name: 'Dev User', email: 'user@dev.local', isAdmin: false, exp: Infinity };
+  }
   const raw = await getSignedCookie(c, env.sessionSecret, SESSION_COOKIE);
   if (!raw) return null;
   try {
@@ -118,6 +123,7 @@ auth.get('/callback', async (c) => {
   const session: Session = {
     oid: String(claims.oid ?? claims.sub),
     name: String(claims.name ?? claims.preferred_username ?? 'User'),
+    email: (claims.preferred_username ?? claims.email ?? claims.upn) as string | undefined,
     isAdmin,
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_S,
   };

@@ -4,8 +4,9 @@ import path from 'node:path';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
-import { ConfigSchema } from '../../../shared/schema';
-import { getSession, requireAdmin } from '../auth';
+import { ConfigSchema, warningVersion, type Config, type Tile } from '../../../shared/schema';
+import { ackDetails, acksOf, AUDIT_DAYS, auditAccept, auditOpen, auditVisit, listPeople, personOf, queryEvents, type AuditType } from '../audit';
+import { getSession, requireAdmin, type Session } from '../auth';
 import { loadConfig, saveConfig } from '../config-store';
 import { env } from '../env';
 import { probeEmbeddable } from '../probe';
@@ -28,11 +29,29 @@ api.get('/config', async (c) => {
 });
 
 api.get('/me', async (c) => {
+  c.header('Cache-Control', 'no-store');
   const s = await getSession(c);
-  return c.json(s ? { signedIn: true, name: s.name, isAdmin: s.isAdmin } : { signedIn: false, isAdmin: false });
+  // acks: the warnings this person accepted (tile id → warning version), so acknowledged ones aren't shown again
+  return c.json(s ? { signedIn: true, name: s.name, isAdmin: s.isAdmin, acks: acksOf(s.oid) } : { signedIn: false, isAdmin: false, acks: {} });
 });
 
-// Public, anonymous usage tracking. Only ids of tiles that exist are counted.
+const who = (s: Session) => ({ oid: s.oid, name: s.name, email: s.email });
+
+/** A tile the person may see (admin-only sections only for admins). */
+function findTile(config: Config, id: string, s: Session | null): Tile | undefined {
+  for (const g of config.groups) {
+    if (g.adminOnly && !s?.isAdmin) continue;
+    const t = g.tiles.find((t) => t.id === id);
+    if (t) return t;
+  }
+}
+
+/** The warning this person still has to read for the tile (none when acknowledged and it allows that). */
+const pendingWarning = (t: Tile, oid: string) =>
+  t.warning && !(t.warning.acknowledge && acksOf(oid)[t.id] === warningVersion(t.warning)) ? t.warning : undefined;
+
+// Usage tracking: anonymous daily totals for the overview, and each signed-in person's activity for the audit.
+// Only ids of tiles that exist are counted.
 const TrackSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('view') }),
   z.object({ type: z.literal('click'), tileId: z.string().max(40) }),
@@ -41,20 +60,75 @@ const TrackSchema = z.discriminatedUnion('type', [
 api.post('/track', async (c) => {
   const ev = TrackSchema.safeParse(await c.req.json().catch(() => null));
   if (!ev.success) return c.body(null, 400);
-  if (ev.data.type === 'view') recordView();
-  else {
-    const { tileId } = ev.data;
-    const config = await loadConfig();
-    if (!config.groups.some((g) => g.tiles.some((t) => t.id === tileId))) return c.body(null, 404);
-    recordClick(tileId);
+  const s = await getSession(c);
+  if (ev.data.type === 'view') {
+    recordView();
+    if (s) auditVisit(who(s));
+  } else {
+    const tile = findTile(await loadConfig(), ev.data.tileId, s);
+    if (!tile) return c.body(null, 404);
+    recordClick(tile.id);
+    // a tile with a warning only shows the warning; the page opens when it is accepted (POST /ack)
+    if (s) auditOpen(who(s), tile, pendingWarning(tile, s.oid)?.level);
   }
   return c.body(null, 204);
 });
 
+// A warning was read and accepted: saved per person, and the page opens.
+api.post('/ack', async (c) => {
+  const body = z.object({ tileId: z.string().max(40) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.body(null, 400);
+  const s = await getSession(c);
+  if (!s) return c.json({ error: 'Not signed in' }, 401);
+  const tile = findTile(await loadConfig(), body.data.tileId, s);
+  if (!tile?.warning) return c.json({ error: 'This tile has no warning' }, 404);
+  const version = warningVersion(tile.warning);
+  auditAccept(who(s), tile, tile.warning.level, version);
+  return c.json({ tileId: tile.id, version });
+});
+
+const rangeOf = (v: string | undefined) => Math.min(Math.max(Number(v) || 30, 1), 365);
+
 api.get('/stats', requireAdmin, (c) => {
-  const days = Math.min(Math.max(Number(c.req.query('days')) || 30, 1), 365);
   c.header('Cache-Control', 'no-store');
-  return c.json({ days: getStats(days) });
+  return c.json({ days: getStats(rangeOf(c.req.query('days'))) });
+});
+
+// ---- per-person activity (admins) ----
+
+api.get('/people', requireAdmin, async (c) => {
+  c.header('Cache-Control', 'no-store');
+  return c.json({ people: await listPeople(rangeOf(c.req.query('days'))), keptDays: AUDIT_DAYS });
+});
+
+api.get('/people/:oid', requireAdmin, async (c) => {
+  c.header('Cache-Control', 'no-store');
+  const oid = c.req.param('oid');
+  const person = personOf(oid);
+  if (!person) return c.json({ error: 'Unknown person' }, 404);
+  const config = await loadConfig();
+  const tiles = new Map(config.groups.flatMap((g) => g.tiles).map((t) => [t.id, t]));
+  // every warning this person accepted, and whether that still covers the warning as it reads today
+  const acks = Object.entries(ackDetails(oid))
+    .map(([tileId, a]) => {
+      const w = tiles.get(tileId)?.warning;
+      const state = !w ? 'removed' : warningVersion(w) === a.v ? 'current' : 'changed';
+      return { tileId, title: tiles.get(tileId)?.title ?? a.title, level: w?.level ?? a.level, at: a.at, state, acknowledge: !!w?.acknowledge };
+    })
+    .sort((a, b) => b.at - a.at);
+  return c.json({ person: { oid, ...person }, acks });
+});
+
+const TYPES: Record<string, AuditType[]> = { opened: ['open', 'accept'], warnings: ['warned', 'accept'], visits: ['visit'] };
+
+api.get('/audit', requireAdmin, async (c) => {
+  c.header('Cache-Control', 'no-store');
+  const q = c.req.query();
+  const limit = Math.min(Math.max(Number(q.limit) || 100, 1), 500);
+  const before = Number(q.before) || Infinity;
+  return c.json(
+    await queryEvents(rangeOf(q.days), { oid: q.oid || undefined, types: TYPES[q.type ?? ''], q: q.q?.slice(0, 100) }, limit, before),
+  );
 });
 
 api.put('/config', requireAdmin, async (c) => {

@@ -2,10 +2,17 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEven
 import type { Config, Tile } from '../../../shared/schema';
 import { api, type StatsDay } from '../api';
 import { TileIcon } from '../components/TileIcon';
+import { ActivityLog, PeopleList, PersonView } from './AuditViews';
 import { Modal } from './Modal';
 import './StatsPanel.css';
 
 const RANGES = [7, 30, 90, 365] as const;
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'people', label: 'People' },
+  { id: 'activity', label: 'Activity' },
+] as const;
+type Tab = (typeof TABS)[number]['id'];
 const fmt = new Intl.NumberFormat('en-US');
 const pct = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
 const dayLabel = (iso: string, long = false) =>
@@ -15,6 +22,9 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
   const [range, setRange] = useState<(typeof RANGES)[number]>(30);
   const [days, setDays] = useState<StatsDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('overview');
+  /** a person opened from People or Activity; Back returns to that tab */
+  const [person, setPerson] = useState<string | null>(null);
 
   useEffect(() => {
     setError(null);
@@ -42,18 +52,49 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
   return (
     <Modal title="Statistics" onClose={onClose} wide>
       <div className="stats stack">
-        <div className="seg" role="group" aria-label="Time range">
-          {RANGES.map((r) => (
-            <button key={r} className={r === range ? 'on' : undefined} aria-pressed={r === range} onClick={() => setRange(r)}>
-              {r === 365 ? '1 year' : `${r} days`}
-            </button>
-          ))}
+        <div className="stats__bar">
+          <div className="seg" role="group" aria-label="View">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                className={t.id === tab ? 'on' : undefined}
+                aria-pressed={t.id === tab}
+                onClick={() => {
+                  setTab(t.id);
+                  setPerson(null);
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="seg" role="group" aria-label="Time range">
+            {RANGES.map((r) => (
+              <button key={r} className={r === range ? 'on' : undefined} aria-pressed={r === range} onClick={() => setRange(r)}>
+                {r === 365 ? '1 year' : `${r} days`}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {error && <p className="error">{error}</p>}
-        {!summary && !error && <span className="spinner" />}
+        {person ? (
+          <PersonView key={person} oid={person} days={range} onBack={() => setPerson(null)} backLabel={tab === 'people' ? 'All people' : 'Activity'} />
+        ) : tab === 'people' ? (
+          <div className="stack">
+            <PeopleList days={range} onPick={setPerson} />
+            <p className="field__hint">
+              Everyone signs in with their Microsoft account, so visits, opened tools and accepted warnings are kept per person for a year.
+              Counts cover the chosen time range.
+            </p>
+          </div>
+        ) : tab === 'activity' ? (
+          <ActivityLog days={range} onPerson={setPerson} />
+        ) : null}
 
-        {summary && days && (
+        {tab === 'overview' && !person && error && <p className="error">{error}</p>}
+        {tab === 'overview' && !person && !summary && !error && <span className="spinner" />}
+
+        {tab === 'overview' && !person && summary && days && (
           // keyed by range so the tiles, chart lines and bars build up again for every new range
           <div className="stack" key={range}>
             <div className="stats__tiles">
@@ -74,7 +115,8 @@ export function StatsPanel({ config, onClose }: { config: Config; onClose: () =>
             </section>
 
             <p className="field__hint">
-              Counts are anonymous daily totals: a view is one page load, a click is one opened tool. Days follow Latvian time.
+              Daily totals: a view is one page load, a click is one opened tool. Days follow Latvian time. Who did what is under People
+              and Activity.
             </p>
           </div>
         )}

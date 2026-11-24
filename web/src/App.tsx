@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { Config, Tile as TileT } from '../../shared/schema';
+import { warningVersion, type Config, type Tile as TileT } from '../../shared/schema';
 import { EditBar } from './admin/EditBar';
 import { SettingsPanel } from './admin/SettingsPanel';
 import { StatsPanel } from './admin/StatsPanel';
@@ -23,7 +23,8 @@ function shouldOpenInNewTab(tile: TileT) {
 export function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [draft, setDraft] = useState<Config | null>(null);
-  const [me, setMe] = useState<Me>({ signedIn: false, isAdmin: false });
+  const [me, setMe] = useState<Me>({ signedIn: false, isAdmin: false, acks: {} });
+  const [meReady, setMeReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState(openIdFromHash);
   /** tile whose warning was accepted for the current opening; cleared whenever the address changes */
@@ -49,7 +50,7 @@ export function App() {
       viewTracked = true; // StrictMode runs effects twice in dev
       api.track({ type: 'view' });
     }
-    api.me().then(setMe, () => {});
+    api.me().then(setMe, () => {}).finally(() => setMeReady(true));
     const onHash = () => {
       setOpenId(openIdFromHash());
       setAccepted(null);
@@ -110,6 +111,8 @@ export function App() {
     setOpenId(null);
   }, []);
   const acceptWarning = (tile: TileT) => {
+    // saved per person; a warning that can be acknowledged isn't shown to them again until it changes
+    api.ack(tile.id).then((r) => setMe((m) => ({ ...m, acks: { ...m.acks, [r.tileId]: r.version } })), () => {});
     if (!shouldOpenInNewTab(tile)) return setAccepted(tile.id);
     window.open(tile.url, '_blank', 'noopener,noreferrer');
     closeViewer();
@@ -186,9 +189,17 @@ export function App() {
   if (loadError) return <div className="center">Could not load navigation: {loadError}</div>;
   if (!shown) return <div className="center" aria-busy="true"><span className="spinner" /></div>;
 
-  const openTileObj = openId ? shown.groups.flatMap((g) => g.tiles).find((t) => t.id === openId) : undefined;
+  // For people (not editors), a warning they already acknowledged, and that still reads the same, is skipped.
+  const acked = (t: TileT) => !!t.warning?.acknowledge && me.acks[t.id] === warningVersion(t.warning);
+  const groups = editing
+    ? shown.groups
+    : shown.groups.map((g) => (g.tiles.some(acked) ? { ...g, tiles: g.tiles.map((t) => (acked(t) ? { ...t, warning: undefined } : t)) } : g));
+
+  const openTileObj = openId ? groups.flatMap((g) => g.tiles).find((t) => t.id === openId) : undefined;
   // a tile with a warning shows the warning first, its page only once accepted
+  // (held back until we know what this person already acknowledged, so it doesn't flash)
   const warnTile = openTileObj?.warning && accepted !== openTileObj.id ? openTileObj : undefined;
+
   const viewTile = warnTile ? undefined : openTileObj;
 
   return (
@@ -228,13 +239,13 @@ export function App() {
           />
         </header>
         <main>
-          <TileGrid groups={shown.groups} editing={editing} onOpen={openTile} actions={actions} />
+          <TileGrid groups={groups} editing={editing} onOpen={openTile} actions={actions} />
           {!editing && shown.groups.every((g) => g.tiles.length === 0) && <p className="empty">No links yet.</p>}
         </main>
       </div>
 
       {viewTile && !editing && <Viewer tile={viewTile} onClose={closeViewer} />}
-      {warnTile?.warning && !editing && (
+      {warnTile?.warning && !editing && meReady && (
         <WarningDialog
           key={warnTile.id}
           tile={warnTile}

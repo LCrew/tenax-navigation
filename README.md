@@ -54,11 +54,26 @@ Accounts from other organizations are rejected by Microsoft, because the app is 
 
 ### Statistics
 
-Signed-in admins see a **Statistics** button in the top bar. It shows page views, tool clicks, clicks per view and a daily trend for the last 7 / 30 / 90 / 365 days, plus every tool ranked by clicks. Unused tools show 0, so you can spot what nobody opens.
+Signed-in admins see a **Statistics** button in the top bar, with three views for the last 7 / 30 / 90 / 365 days:
+
+- **Overview**: page views, tool clicks, clicks per view, a daily trend, and every tool ranked by clicks. Unused tools show 0, so you can spot what nobody opens.
+- **People**: everyone who has signed in, with name and email (searchable), visits, opened tools, accepted warnings and when they were last seen. Open a person to see the warnings they accepted (still valid, or the warning changed since) and their activity.
+- **Activity**: the audit log of everyone: who visited the page, opened a tool, was shown a warning or accepted one. Search by person or tool, and filter by kind.
+
+Details:
 
 - A *view* is one page load. A *click* is one opened tool: normal, Ctrl/⌘ or middle click. On touch devices the first tap only reveals the tile, so it isn't counted.
-- Counts are anonymous daily totals in `/data/stats.json`. No IPs, cookies or user identities are stored. Days follow `STATS_TZ` (default `Europe/Riga`), and data older than ~400 days is dropped.
-- Counts are written to disk every 15 s and on shutdown.
+- In the activity log, page loads by the same person within 30 minutes count as one visit.
+- The daily totals are in `/data/stats.json` (kept ~400 days). The per-person activity is in `/data/audit/YYYY-MM-DD.jsonl`, one file per day, kept `AUDIT_DAYS` days (default 365). Names and emails are in `/data/people.json` and are dropped when a person's last activity expires. Accepted warnings are in `/data/acks.json`. Days follow `STATS_TZ` (default `Europe/Riga`).
+- **This is personal data** (who opened what, and when). Tell the people using the page that it is recorded, and check it against your privacy policy (GDPR).
+- Data is written to disk every 5–15 s and on shutdown.
+
+### Warnings before opening
+
+A tile can show a warning that people must read and tick before the page opens (tile editor → *Warning before opening*): level, icon, heading, text, checkbox text, and an optional wait before the open button unlocks. Every acceptance is saved per person.
+
+- *Can be acknowledged* → **No, every time**: the warning is shown every time.
+- **Yes, once per person**: someone who accepted it isn't asked again until you change its level, heading, text or checkbox text. Changing only the icon or the wait doesn't ask everyone again.
 
 ### Letting internal tools open inside the page
 

@@ -127,3 +127,82 @@
   .ranking__bar-col { display: none; }
   .stat-tile__value { font-size: 26px; }
 }
+
+/* ---------- views and range ---------- */
+.stats__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.stats__bar .seg { align-self: auto; }
+
+/* ---------- people and activity ---------- */
+.audit { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.audit__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.audit__search { flex: 1 1 260px; max-width: 420px; }
+.audit .seg { align-self: auto; }
+.audit__count { font-size: 13.5px; }
+.audit__empty { margin: 8px 0; color: var(--muted); font-size: 14.5px; }
+.audit__more { align-self: center; }
+.audit__back { margin-left: -10px; }
+
+.audit__day { display: flex; flex-direction: column; gap: 4px; }
+.audit__day-title { margin: 6px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.audit__list { list-style: none; margin: 0; padding: 0; }
+.audit__row {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 8px 4px; border-top: 1px solid var(--line2); font-size: 14.5px;
+}
+.audit__list > .audit__row:first-child { border-top: 0; }
+.audit__time { flex: none; width: 44px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.audit__icon {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--tile); color: var(--ink); box-shadow: var(--bead, none);
+}
+.audit__icon[class*='lvl--'] { background: var(--lvl); color: var(--on-lvl); box-shadow: none; }
+.audit__row--visit .audit__icon { color: var(--muted); }
+.audit__what { flex: 1; min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
+.audit__what strong { font-weight: 600; }
+.audit__name {
+  padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: inherit; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--line3); text-underline-offset: 3px;
+}
+.audit__name:hover { text-decoration-color: currentColor; }
+.audit__lvl {
+  flex: none; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--lvl); color: var(--on-lvl);
+}
+.audit__avatar {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--ink); color: var(--on-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .02em;
+}
+
+/* people table: the name cell is one button that opens the person */
+.people td { padding-top: 7px; padding-bottom: 7px; }
+.people__who {
+  display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%;
+  padding: 2px; border: 0; border-radius: 12px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.people__who:hover .people__name { text-decoration: underline; text-underline-offset: 3px; }
+.people__who:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.people__text { display: flex; flex-direction: column; min-width: 0; }
+.people__name { font-weight: 600; }
+.people__email { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+/* known, but nothing in the chosen range */
+.people tr.is-zero td.num { color: var(--faint); }
+
+/* one person */
+.person { display: flex; align-items: center; gap: 16px; }
+.person .audit__avatar { width: 56px; height: 56px; font-size: 19px; }
+.person__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.person__name { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.015em; }
+.person__seen { font-size: 13px; }
+.acks .audit__what { display: flex; flex-direction: column; gap: 1px; }
+.acks__when { font-size: 13px; }
+
+@media (max-width: 600px) {
+  .people__opt, .people__email { display: none; }
+  /* the icon colour already shows the level */
+  .audit__lvl { display: none; }
+  .audit__tools .seg { display: flex; width: 100%; }
+  .audit__tools .seg button { flex: 1; padding-inline: 6px; }
+  .acks .audit__row { flex-wrap: wrap; row-gap: 4px; }
+  .acks .audit__what { flex-basis: calc(100% - 44px); }
+  .acks .status { margin-left: 40px; }
+}

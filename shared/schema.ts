@@ -37,7 +37,27 @@ export const WarningSchema = z.object({
   confirmText: z.string().trim().max(120).optional(),
   /** Seconds the open button stays locked, so the text gets read. */
   waitSeconds: z.number().int().min(0).max(60).default(0),
+  /** Can be acknowledged: people who accepted it once aren't asked again until its text changes. */
+  acknowledge: z.boolean().optional(),
 });
+
+/**
+ * Short fingerprint of what a warning says (level, heading, text, checkbox text). A saved acknowledgement
+ * stays valid only while this matches, so changing the wording asks everyone again; the icon and the wait
+ * don't count. Shared by server and browser, so both agree on which acknowledgements still hold.
+ */
+export function warningVersion(w: Pick<Warning, 'level' | 'title' | 'message' | 'confirmText'>): string {
+  const s = JSON.stringify([w.level, w.title ?? '', w.message, w.confirmText ?? '']);
+  // FNV-1a, two independent 32-bit lanes (not for security: it only notices that the text changed)
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ s.length;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c, 0x5bd1e995);
+  }
+  return (a >>> 0).toString(36) + (b >>> 0).toString(36);
+}
 
 export const TileSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),

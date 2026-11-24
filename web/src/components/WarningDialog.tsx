@@ -149,6 +149,12 @@ export function WarningDialog({ tile, warning, onAccept, onCancel, preview }: Pr
                 </span>
               </span>
             </label>
+
+            <p className="warn__note">
+              {warning.acknowledge
+                ? 'Your acknowledgement is saved. You won’t be asked again until this warning changes.'
+                : 'Your acceptance is saved. This warning is shown every time.'}
+            </p>
           </div>
 
           <div className="warn__actions">
@@ -156,7 +162,7 @@ export function WarningDialog({ tile, warning, onAccept, onCancel, preview }: Pr
               Cancel
             </button>
             <button className="btn btn--primary" disabled={!ready} onClick={onAccept}>
-              {preview ? 'Close preview' : 'Open page'}
+              {preview ? 'Close preview' : warning.acknowledge ? 'Acknowledge and open' : 'Open page'}
             </button>
           </div>
         </div>

@@ -27,18 +27,31 @@
   outline: none;
   animation: fade-in .32s ease-out both;
 }
+/* glass: the frosted pane is a backing layer behind the content, because Safari redraws content inside
+   a blurred element out of place while it scrolls or hovers (see .sheet in styles.css).
+   The window itself must not fade (a fading parent switches the pane's blur off), so it only rises;
+   the pane and the parts fade in on their own. */
 :root[data-surface="glass"] .warn {
+  position: relative; isolation: isolate; overflow: visible;
+  background: transparent; box-shadow: none;
+  animation: warn-rise .32s var(--ease) both;
+}
+:root[data-surface="glass"] .warn::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
   background: var(--pop);
   -webkit-backdrop-filter: saturate(1.8) blur(28px); backdrop-filter: saturate(1.8) blur(28px);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shine), 0 24px 60px rgba(0, 0, 0, .2);
+  animation: fade-in .32s ease-out both;
 }
+:root[data-surface="glass"] .warn > * { animation: fade-in .32s ease-out both; }
+@keyframes warn-rise { from { transform: translateY(12px) scale(.985); } }
 
 /* 1. the coloured band: icon and level word */
 .warn__band {
   position: relative; flex: none;
   display: flex; align-items: center; gap: 14px;
-  padding: 18px 24px 22px;
+  padding: 18px 24px 22px; border-radius: 32px 32px 0 0;
   background: var(--lvl); color: var(--on-lvl);
 }
 /* hazard stripes along the lower edge for the two highest levels */
@@ -115,6 +128,8 @@
 .warn__status { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .warn__status.is-ready { color: var(--ok); }
 
+.warn__note { margin: 0; padding: 0 4px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
 /* 3. the fixed button row: plain button, then the dark primary on the right */
 .warn__actions {
   flex: none; display: flex; justify-content: flex-end; gap: 8px;
@@ -125,14 +140,14 @@
 @media (max-width: 480px) {
   .warn-wrap { padding: 10px; }
   .warn { border-radius: 28px; }
-  .warn__band { padding: 16px 20px 20px; }
+  .warn__band { padding: 16px 20px 20px; border-radius: 28px 28px 0 0; }
   .warn__body { padding: 20px 20px 12px; }
   .warn__actions { padding: 12px 20px 20px; }
   .warn__actions .btn { flex: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .warn-shade, .warn { animation: none; }
+  .warn-shade, .warn, :root[data-surface="glass"] .warn, :root[data-surface="glass"] .warn::before, :root[data-surface="glass"] .warn > * { animation: none; }
   .warn__box, .warn__box::after { transition: none; }
 }
 
