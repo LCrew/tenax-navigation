@@ -1,41 +1,47 @@
 /*
- * Warning shown before a tile's page opens. The four levels use the usual safety-sign colours
- * (notice blue, caution yellow, warning orange, danger red) in every theme, so they read the same everywhere.
+ * Warning shown before a tile's page opens: a dialog window (GLASS-DESIGN 6.10) in three parts,
+ * a fixed coloured band, a scrolling middle and a fixed button row (rule 8.4).
+ * Only the band carries the level colour; everything else is the normal window, card and button look.
+ * The levels use the usual safety-sign colours in every theme.
  */
 .lvl--notice  { --lvl: #2F6FDB; --on-lvl: #fff; }
 .lvl--caution { --lvl: #F2C230; --on-lvl: #2A2200; }
 .lvl--warning { --lvl: #EC7A14; --on-lvl: #241300; }
 .lvl--danger  { --lvl: #C8231B; --on-lvl: #fff; }
 
-.warn-shade {
-  position: fixed; inset: 0; z-index: 60;
-  display: grid; place-items: center; padding: 16px;
-  background: var(--shade);
-  animation: fade-in .2s ease-out both;
+/* shade and window are siblings (rule 8.3): a fading ancestor would switch off the window's blur */
+.warn-shade { position: fixed; inset: 0; z-index: 60; background: var(--shade); animation: fade-in .32s ease-out both; }
+:root[data-surface="glass"] .warn-shade { background: rgba(30, 30, 28, .26); }
+
+/* only as tall as the window, so it never sits as an invisible box over the page */
+.warn-wrap {
+  position: fixed; inset: 0; z-index: 61; margin: auto 0; height: fit-content; max-height: 100%;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
 }
 
 .warn {
-  width: min(520px, 100%); max-height: calc(100dvh - 32px);
-  display: flex; flex-direction: column;
-  border-radius: 24px; overflow: hidden;
-  background: var(--card); color: var(--ink);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, .28), 0 0 0 1px var(--line);
+  width: 100%; max-width: 520px; max-height: 92dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 32px; background: var(--card); color: var(--ink);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .2);
   outline: none;
-  animation: warn-in .28s var(--ease) both;
+  animation: fade-in .32s ease-out both;
 }
-/* solid even in the glass style: nothing behind may show through text people must read */
 :root[data-surface="glass"] .warn {
-  box-shadow: inset 0 1px 0 var(--glass-edge), 0 24px 64px rgba(0, 0, 0, .28);
+  background: var(--pop);
+  -webkit-backdrop-filter: saturate(1.8) blur(28px); backdrop-filter: saturate(1.8) blur(28px);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shine), 0 24px 60px rgba(0, 0, 0, .2);
 }
 
-/* coloured band with the icon and the level word */
+/* 1. the coloured band: icon and level word */
 .warn__band {
   position: relative; flex: none;
   display: flex; align-items: center; gap: 14px;
-  padding: 16px 22px;
+  padding: 18px 24px 22px;
   background: var(--lvl); color: var(--on-lvl);
 }
-/* hazard stripes for the two highest levels */
+/* hazard stripes along the lower edge for the two highest levels */
 .lvl--warning .warn__band::after,
 .lvl--danger .warn__band::after {
   content: ''; position: absolute; inset: auto 0 0 0; height: 6px;
@@ -43,65 +49,94 @@
 }
 .lvl--danger .warn__band::after { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .5) 0 10px, transparent 10px 20px); }
 .warn__badge {
-  flex: none; width: 48px; height: 48px; border-radius: 50%;
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center;
   background: color-mix(in srgb, var(--on-lvl) 16%, transparent);
 }
-.warn__badge img { width: 28px; height: 28px; object-fit: contain; }
-.warn__level { font-size: 22px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.warn__badge img { width: 26px; height: 26px; object-fit: contain; }
+.warn__level { font-size: 21px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 
-.warn__body { min-height: 0; overflow: auto; padding: 20px 22px 6px; }
-.warn__title { margin: 0; font-size: 19px; font-weight: 650; line-height: 1.3; }
-.warn__target { margin: 6px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
-.warn__target strong { color: var(--ink); font-weight: 600; }
+/* 2. the scrolling middle */
+.warn__body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 22px 24px 12px;
+}
+/* more below: fade the lower edge instead of cutting the text off at the buttons */
+.warn__body.has-more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+}
+.warn__title { margin: 0; font-size: 22px; font-weight: 650; line-height: 1.25; letter-spacing: -.01em; overflow-wrap: anywhere; }
 
-.warn__msg {
-  margin-top: 16px; max-height: min(40vh, 320px); overflow: auto;
-  padding: 14px 16px; border-radius: 14px;
-  border-left: 4px solid var(--lvl);
-  background: color-mix(in srgb, var(--lvl) 9%, var(--sel));
-  font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+/* the page that opens: a list row (round icon, title, muted address) */
+.warn__site { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 4px; }
+.warn__site-icon {
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--tile); color: var(--ink);
 }
-.warn__msg:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+:root[data-surface="glass"] .warn__site-icon { box-shadow: var(--bead); }
+.warn__site-icon img { width: 22px; height: 22px; object-fit: contain; }
+.warn__site-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.warn__site-name, .warn__site-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.warn__site-name { font-size: 15px; font-weight: 600; }
+.warn__site-url { font-size: 13px; color: var(--muted); }
 
-.warn__check {
-  display: flex; align-items: flex-start; gap: 12px;
-  margin-top: 16px; font-size: 15px; font-weight: 550; line-height: 1.4; cursor: pointer;
-}
-.warn__check input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--lvl); cursor: pointer; }
-.warn__check input:disabled { cursor: default; }
-.warn__check input:disabled + span { color: var(--faint); }
-.warn__hint { margin: 8px 0 0 32px; font-size: 13px; color: var(--muted); }
+/* cards inside the window: a quiet grey in the solid style, glass cards (styles.css) in the glass style */
+.warn .card { background: var(--sel); box-shadow: none; }
 
-.warn__foot { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px 20px; }
-/* a primary button in the level's colour (set through its tokens, so every theme's primary rules apply) */
-.warn__go {
-  --primary: var(--lvl); --on-primary: var(--on-lvl); --outline: var(--lvl);
-  --ink-hover: color-mix(in srgb, var(--lvl) 86%, #000);
-  font-weight: 650;
+.warn__msg { padding: 16px 18px; font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* the confirmation: a card row with a checkbox, its label and a one-line status
+   (always one line, so ticking the box never changes the window's size) */
+.warn__check { display: flex; align-items: center; gap: 14px; padding: 14px 16px; cursor: pointer; }
+.warn__check input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.warn__box {
+  flex: none; position: relative; width: 26px; height: 26px; border-radius: 8px;
+  border: 2px solid var(--line3); background: var(--card);
+  transition: background-color .15s ease, border-color .15s ease, opacity .2s ease;
 }
-/* locked: plainly grey, not a faded level colour */
-.warn .warn__go:disabled { --primary: var(--tile); --on-primary: var(--muted); opacity: 1; }
-.warn__count {
-  min-width: 24px; height: 24px; margin-left: 8px; border-radius: 12px;
-  display: inline-grid; place-items: center;
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  font-size: 13px; font-variant-numeric: tabular-nums;
+:root[data-surface="glass"] .warn__box { background: var(--well); border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+/* the tick: two borders turned -45°, scaling in */
+.warn__box::after {
+  content: ''; position: absolute; left: 5px; top: 5px; width: 11px; height: 6px;
+  border-left: 2.5px solid var(--on-ink); border-bottom: 2.5px solid var(--on-ink);
+  transform: rotate(-45deg) scale(0); transition: transform .15s var(--ease);
 }
+.warn__check input:checked + .warn__box { background: var(--ink); border-color: var(--ink); }
+.warn__check input:checked + .warn__box::after { transform: rotate(-45deg) scale(1); }
+.warn__check input:focus-visible + .warn__box { outline: 2px solid var(--ink); outline-offset: 2px; }
+.warn__check.is-locked { cursor: default; }
+.warn__check.is-locked .warn__box { opacity: .4; }
+
+.warn__check-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.warn__check-label { font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.warn__check.is-locked .warn__check-label { color: var(--muted); }
+.warn__status { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.warn__status.is-ready { color: var(--ok); }
+
+/* 3. the fixed button row: plain button, then the dark primary on the right */
+.warn__actions {
+  flex: none; display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 24px 24px; border-top: 1px solid var(--line2);
+}
+:root[data-surface="glass"] .warn__actions { border-top: 0; padding-top: 10px; }
 
 @media (max-width: 480px) {
-  .warn-shade { padding: 10px; }
-  .warn__foot { flex-direction: column-reverse; }
-  .warn__foot .btn { width: 100%; }
+  .warn-wrap { padding: 10px; }
+  .warn { border-radius: 28px; }
+  .warn__band { padding: 16px 20px 20px; }
+  .warn__body { padding: 20px 20px 12px; }
+  .warn__actions { padding: 12px 20px 20px; }
+  .warn__actions .btn { flex: 1; }
 }
-
-@keyframes warn-in { from { opacity: 0; transform: translateY(12px) scale(.97); } }
 
 @media (prefers-reduced-motion: reduce) {
   .warn-shade, .warn { animation: none; }
+  .warn__box, .warn__box::after { transition: none; }
 }
 
-/* tile marker: a small badge in the corner of tiles with a warning */
+/* edit mode: a small badge in the corner of tiles that carry a warning */
 .tile__warn {
   position: absolute; z-index: 2; top: 10px; left: 10px;
   width: 26px; height: 26px; border-radius: 50%;

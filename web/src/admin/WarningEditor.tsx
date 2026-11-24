@@ -25,7 +25,7 @@ function ButtonField({ label, children }: { label: string; children: ReactNode }
 const starter = (): Warning => ({ level: 'warning', message: '', waitSeconds: 0 });
 
 type Props = {
-  tile: Pick<Tile, 'title' | 'url'>;
+  tile: Pick<Tile, 'title' | 'url' | 'icon'>;
   value?: Warning;
   onChange: (w?: Warning) => void;
 };
@@ -155,7 +155,7 @@ export function WarningEditor({ tile, value, onChange }: Props) {
 
           {preview && (
             <WarningDialog
-              tile={{ title: tile.title || 'Title', url: tile.url }}
+              tile={{ title: tile.title || 'Title', url: tile.url, icon: tile.icon }}
               warning={w}
               preview
               onAccept={() => setPreview(false)}

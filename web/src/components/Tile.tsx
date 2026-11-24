@@ -70,7 +70,8 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
       {/* the clip keeps the moving parts inside the rounded tile, while the tile's own hover shadow
           (::after) stays outside it and can be faded with opacity alone */}
       <span className="tile__clip" aria-hidden="true">
-        {tile.warning && (
+        {/* only editors see which tiles carry a warning */}
+        {disabled && tile.warning && (
           <span className={`tile__warn lvl--${tile.warning.level}`} title={`${LEVELS[tile.warning.level].label}: read before opening`}>
             <TileIcon icon={warningIcon(tile.warning)} size={15} />
           </span>
