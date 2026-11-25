@@ -45,14 +45,16 @@ app.use('*', async (c, next) => {
 
 // The visitor's address. Through a Cloudflare tunnel every request comes from cloudflared, so the address is
 // taken from CF-Connecting-IP, which Cloudflare sets itself (otherwise one bucket would be shared by everyone,
-// and 30 requests a minute would lock all users out of sign-in). Behind another proxy (TRUST_PROXY=1) only the
+// and the sign-in limit below would lock all users out). Behind another proxy (TRUST_PROXY=1) only the
 // last X-Forwarded-For entry is the proxy's own; the ones before it are whatever the client sent.
 const clientIp = (c: Context) =>
   c.req.header('cf-connecting-ip') ||
   (env.trustProxy && c.req.header('x-forwarded-for')?.split(',').at(-1)?.trim()) ||
   getConnInfo(c).remote.address ||
   'unknown';
-app.use('/auth/*', rateLimiter({ windowMs: 60_000, limit: 30, keyGenerator: clientIp }));
+// A whole office signs in from one public IP, each sign-in taking 2–3 requests, so this is set for a busy
+// morning, not for one person: it only stops a single address from flooding the sign-in routes.
+app.use('/auth/*', rateLimiter({ windowMs: 60_000, limit: 300, keyGenerator: clientIp }));
 // API writes are limited per signed-in person (a whole office may share one IP), else per address.
 const perPerson = (limit: number) =>
   rateLimiter({ windowMs: 60_000, limit, keyGenerator: async (c) => (await getSession(c))?.oid ?? `ip:${clientIp(c)}` });
