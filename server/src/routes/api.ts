@@ -127,7 +127,7 @@ api.get('/audit', requireAdmin, async (c) => {
   const limit = Math.min(Math.max(Number(q.limit) || 100, 1), 500);
   const before = Number(q.before) || Infinity;
   return c.json(
-    await queryEvents(rangeOf(q.days), { oid: q.oid || undefined, types: TYPES[q.type ?? ''], q: q.q?.slice(0, 100) }, limit, before),
+    await queryEvents(rangeOf(q.days), { oid: q.oid || undefined, types: q.type && Object.hasOwn(TYPES, q.type) ? TYPES[q.type] : undefined, q: q.q?.slice(0, 100) }, limit, before),
   );
 });
 

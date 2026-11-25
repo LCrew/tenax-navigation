@@ -59,8 +59,14 @@ export function warningVersion(w: Pick<Warning, 'level' | 'title' | 'message' | 
   return (a >>> 0).toString(36) + (b >>> 0).toString(36);
 }
 
+// Ids are used as keys in stored objects, so names an object already has are not allowed.
+const id = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,40}$/)
+  .refine((v) => !['__proto__', 'constructor', 'prototype'].includes(v), 'Reserved id');
+
 export const TileSchema = z.object({
-  id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
+  id,
   title: z.string().min(1).max(80),
   description: z.string().max(200).default(''),
   url: httpUrl,
@@ -75,7 +81,7 @@ export const TileSchema = z.object({
 });
 
 export const GroupSchema = z.object({
-  id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
+  id,
   name: z.string().max(80),
   /** Optional company logo shown next to the section name. */
   logoUrl: uploadPath.optional(),

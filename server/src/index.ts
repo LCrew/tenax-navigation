@@ -3,9 +3,10 @@ import path from 'node:path';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { rateLimiter } from 'hono-rate-limiter';
-import { auth, requireLogin } from './auth';
+import { auth, getSession, requireLogin } from './auth';
 import { loadConfig } from './config-store';
 import { env } from './env';
 import { api, uploadsDir } from './routes/api';
@@ -21,6 +22,8 @@ app.use('*', async (c, next) => {
   await next();
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('X-Frame-Options', 'SAMEORIGIN');
+  if (ownOrigin.startsWith('https://')) c.header('Strict-Transport-Security', 'max-age=31536000');
   if (!c.res.headers.has('Content-Security-Policy')) {
     c.header(
       'Content-Security-Policy',
@@ -40,14 +43,29 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-const clientIp = (c: any) =>
-  (env.trustProxy && c.req.header('x-forwarded-for')?.split(',')[0].trim()) || getConnInfo(c).remote.address || 'unknown';
-const limiter = (limit: number) => rateLimiter({ windowMs: 60_000, limit, keyGenerator: clientIp });
-app.use('/auth/*', limiter(30));
-// Tracking gets its own, higher budget (a whole office may share one IP).
-const writeLimiter = limiter(60);
-const trackLimiter = limiter(600);
+// The visitor's address. Through a Cloudflare tunnel every request comes from cloudflared, so the address is
+// taken from CF-Connecting-IP, which Cloudflare sets itself (otherwise one bucket would be shared by everyone,
+// and 30 requests a minute would lock all users out of sign-in). Behind another proxy (TRUST_PROXY=1) only the
+// last X-Forwarded-For entry is the proxy's own; the ones before it are whatever the client sent.
+const clientIp = (c: Context) =>
+  c.req.header('cf-connecting-ip') ||
+  (env.trustProxy && c.req.header('x-forwarded-for')?.split(',').at(-1)?.trim()) ||
+  getConnInfo(c).remote.address ||
+  'unknown';
+app.use('/auth/*', rateLimiter({ windowMs: 60_000, limit: 30, keyGenerator: clientIp }));
+// API writes are limited per signed-in person (a whole office may share one IP), else per address.
+const perPerson = (limit: number) =>
+  rateLimiter({ windowMs: 60_000, limit, keyGenerator: async (c) => (await getSession(c))?.oid ?? `ip:${clientIp(c)}` });
+const writeLimiter = perPerson(60);
+const trackLimiter = perPerson(120);
 app.on(['POST', 'PUT', 'DELETE'], '/api/*', (c, next) => (c.req.path === '/api/track' ? trackLimiter : writeLimiter)(c, next));
+// Request bodies are small JSON, the whole page config at most; uploads have their own 10 MB limit.
+const sizeLimit = (maxSize: number) => bodyLimit({ maxSize, onError: (c) => c.json({ error: 'Request too large' }, 413) });
+const configLimit = sizeLimit(2 * 1024 * 1024);
+const smallLimit = sizeLimit(64 * 1024);
+app.use('/api/*', (c, next) =>
+  c.req.path === '/api/uploads' ? next() : (c.req.path === '/api/config' ? configLimit : smallLimit)(c, next),
+);
 
 app.onError((err, c) => {
   console.error(`${c.req.method} ${c.req.path} failed:`, err);

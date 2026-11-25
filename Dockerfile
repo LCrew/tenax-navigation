@@ -19,6 +19,8 @@ COPY --from=build /usr/local/bin/node /usr/local/bin/node
 WORKDIR /app
 COPY --from=build /src/server/dist/server.js ./server.js
 COPY --from=build /src/web/dist ./public
+# marks the image, so the server refuses the DEV_NO_AUTH test mode here whatever the env file says
+RUN touch /app/.production-image
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/data STATIC_DIR=/app/public
 USER node
 EXPOSE 8080

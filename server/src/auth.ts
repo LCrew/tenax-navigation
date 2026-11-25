@@ -1,7 +1,8 @@
 import { Hono, type MiddlewareHandler } from 'hono';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import * as oidc from 'openid-client';
-import { env } from './env';
+import { env, isLocalHost } from './env';
 
 /** email: the sign-in name (UPN), missing on sessions from before it was stored */
 export type Session = { oid: string; name: string; email?: string; isAdmin: boolean; exp: number };
@@ -25,8 +26,21 @@ function getOidcConfig() {
   return configPromise;
 }
 
+// Test mode answers only requests made on this machine: from a loopback address, to a localhost name (so a web
+// page can't reach it by DNS rebinding), and not passed on by a Cloudflare tunnel running here.
+function fromThisMachine(c: Parameters<MiddlewareHandler>[0]) {
+  const from = getConnInfo(c).remote.address ?? '';
+  return (
+    /^(127\.|::1$|::ffff:127\.)/.test(from) &&
+    isLocalHost(c.req.header('host') ?? '') &&
+    !c.req.header('cf-connecting-ip') &&
+    !c.req.header('cf-ray')
+  );
+}
+
 export async function getSession(c: Parameters<MiddlewareHandler>[0]): Promise<Session | null> {
   if (env.devNoAuth) {
+    if (!fromThisMachine(c)) return null;
     return env.devAdmin
       ? { oid: 'dev-admin', name: 'Dev Admin', email: 'admin@dev.local', isAdmin: true, exp: Infinity }
       : { oid: 'dev-user', name: 'Dev User', email: 'user@dev.local', isAdmin: false, exp: Infinity };
@@ -41,9 +55,18 @@ export async function getSession(c: Parameters<MiddlewareHandler>[0]): Promise<S
   }
 }
 
-// Only same-site relative paths, so the login flow can't be used as an open redirect.
-function safeReturnTo(v: string | undefined) {
-  return v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') && !v.startsWith('/auth/') ? v : '/';
+// Only paths on this site, so the login flow can't be used as an open redirect. Browsers drop tabs and
+// newlines from URLs and read "\\" as "/", so "/<tab>/evil.example" would otherwise leave the site.
+const ownOrigin = new URL(env.publicUrl).origin;
+function safeReturnTo(v: unknown) {
+  if (typeof v !== 'string' || !v.startsWith('/') || /[\u0000-\u001f\u007f\\]/.test(v)) return '/';
+  try {
+    const u = new URL(v, ownOrigin);
+    if (u.origin !== ownOrigin || u.pathname.startsWith('/auth/')) return '/';
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return '/';
+  }
 }
 
 // Site-wide gate: everything except sign-in routes and the health check needs a company login.
@@ -67,7 +90,10 @@ export const auth = new Hono();
 
 auth.get('/login', async (c) => {
   const returnTo = safeReturnTo(c.req.query('returnTo'));
-  if (env.devNoAuth) return c.redirect(returnTo);
+  if (env.devNoAuth) {
+    if (!(await getSession(c))) return c.text('Test mode (DEV_NO_AUTH) only works from this machine.', 403);
+    return c.redirect(returnTo);
+  }
   const config = await getOidcConfig();
   const verifier = oidc.randomPKCECodeVerifier();
   const state = oidc.randomState();
@@ -113,7 +139,10 @@ auth.get('/callback', async (c) => {
     console.error('OIDC callback failed', err);
     return c.html(messagePage('Sign-in failed', 'Microsoft sign-in could not be completed.'), 401);
   }
-  if (!claims) return c.html(messagePage('Sign-in failed', 'Microsoft sign-in could not be completed.'), 401);
+  // Only accounts of our own directory (the issuer check already implies it; this keeps it explicit).
+  if (!claims || String(claims.tid ?? '').toLowerCase() !== env.oidc!.tenantId) {
+    return c.html(messagePage('Sign-in failed', 'Microsoft sign-in could not be completed.'), 401);
+  }
 
   const roles = (claims.roles as string[] | undefined) ?? [];
   const groups = (claims.groups as string[] | undefined) ?? [];

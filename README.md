@@ -32,7 +32,9 @@ Backups: copy the `navigation-data` volume, or use **Settings → Export JSON** 
 
 Alternatively, set `ADMIN_GROUP_ID` to a security group's object ID and enable the *groups* claim under **Token configuration**. The app role is preferred because it avoids the groups-overage limit.
 
-**Viewers need no role.** Any account in your tenant can sign in and see the page. The `Nav.Admin` role only adds **Edit page** and **Statistics**. Keep **Enterprise applications → Tenax Navigation → Properties → Assignment required?** set to **No**, which is the default. If you set it to *Yes*, only users or groups you assign under *Users and groups* can sign in at all. That's useful to limit the page to, say, an "All staff" group.
+**Viewers need no role.** The `Nav.Admin` role only adds **Edit page** and **Statistics**. Who can sign in at all is set under **Enterprise applications → Tenax Navigation → Properties → Assignment required?**:
+- **No** (the default): any account in your tenant can sign in, including guest accounts invited from other companies.
+- **Yes**: only users or groups you assign under *Users and groups* can sign in. Use this once the page is reachable from the internet, and assign an "All staff" group.
 
 Accounts from other organizations are rejected by Microsoft, because the app is single-tenant.
 
@@ -91,12 +93,12 @@ npm install
 npm run dev -w server   # :8080, DEV_NO_AUTH=1 → everyone is admin, data in ./data
 npm run dev -w web      # :5173, proxies /api /auth /uploads to :8080
 ```
-`DEV_NO_AUTH` refuses to start when `NODE_ENV=production`.
+`DEV_NO_AUTH` is for local development only. The server refuses to start with it inside the Docker image, with `NODE_ENV=production`, or with a non-localhost `PUBLIC_URL`. While it runs, it only answers requests from this machine (a loopback address and a localhost `Host`), and never answers requests passed on by a Cloudflare tunnel.
 Start the server with `DEV_ADMIN=0` to see the page as a normal user (admin-only sections hidden).
 
 ## Security notes
 
-- Every route except `/auth/*` and `/healthz` requires a signed-in session: pages redirect to sign-in, and `/api/*` returns 401. Static files are sent with `Cache-Control: private`, so Cloudflare's edge never caches them for other visitors. Every write route also requires an admin session. The session is an HMAC-signed, httpOnly, SameSite=Lax cookie with an 8 h lifetime. On top of that, each write must send an `Origin` header matching `PUBLIC_URL` (CSRF protection).
+- Every route except `/auth/*` and `/healthz` requires a signed-in session: pages redirect to sign-in, and `/api/*` returns 401. Static files are sent with `Cache-Control: private`, so Cloudflare's edge never caches them for other visitors. Every route that changes the page or shows statistics requires an admin session; signed-in users can only record their own visits, clicks and accepted warnings. The session is an HMAC-signed, httpOnly, SameSite=Lax cookie with an 8 h lifetime. On top of that, each write must send an `Origin` header matching `PUBLIC_URL` (CSRF protection).
 - The config is validated with zod on the server:
   - Only `http(s)` URLs are allowed.
   - Colors and ids are pattern-checked.
@@ -105,5 +107,19 @@ Start the server with `DEV_ADMIN=0` to see the page as a normal user (admin-only
   - The file type is sniffed from its contents.
   - Size is capped at 10 MB, and files get random names.
   - They are served with `CSP: sandbox` + `nosniff`, so an SVG containing script can't run.
-- The page CSP is strict (`script-src 'self'`). Rate limits apply to `/auth/*` and to API writes.
+- The page CSP is strict (`script-src 'self'`), plus `X-Frame-Options`, `nosniff` and, on https, HSTS.
+- Sign-in only accepts accounts of the tenant in `OIDC_TENANT_ID`, which must be the tenant GUID (not `common`/`organizations`). After sign-in, the user is only sent back to a path on this site.
+- Limits:
+  - `/auth/*` allows 30 requests a minute per address.
+  - API writes are limited per signed-in person.
+  - JSON bodies are capped at 64 KB (2 MB for the page config).
+  - The activity log records at most 2,000 events per person per day, and a repeat of the same event within 3 s is recorded once.
+- The visitor's address for the limits comes from `CF-Connecting-IP` (Cloudflare tunnel), else from the last `X-Forwarded-For` entry when `TRUST_PROXY=1`, else from the connection.
+
+### Publishing through a Cloudflare tunnel
+
+- Use a production `.env`: an https `PUBLIC_URL` (the tunnel hostname), real Entra values, and no `DEV_NO_AUTH`.
+- Publish the port on this machine only (`HOST_PORT=127.0.0.1:8080`) and point cloudflared at `http://localhost:8080`, or run cloudflared in the same compose project and remove `ports:`. Then nobody can skip Cloudflare by connecting to the server directly.
+- In Entra, set **Enterprise applications → Tenax Navigation → Properties → Assignment required?** to **Yes** and assign your staff group. Otherwise every account in the tenant can sign in, including guest accounts invited from other companies.
+- Changing `SESSION_SECRET` signs everyone out at once; sessions otherwise last up to 8 h, also after someone loses the admin role.
 - The container runs as non-root on a read-only root filesystem with all capabilities dropped, limited to 128 MB of memory.

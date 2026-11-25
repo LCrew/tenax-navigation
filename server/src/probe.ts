@@ -10,9 +10,9 @@ export async function probeEmbeddable(url: string, ownOrigin: string): Promise<{
       headers: { 'user-agent': 'TenaxNavigation/1.0 (frame probe)' },
     });
     res.body?.cancel().catch(() => {});
-  } catch (err: any) {
+  } catch {
     // Unknown (e.g. internal host not reachable from the container): let the browser try.
-    return { embeddable: null, reason: `Not reachable from server (${err?.message ?? err}), will try inside page` };
+    return { embeddable: null, reason: 'Not reachable from server, will try inside page' };
   }
 
   const xfo = res.headers.get('x-frame-options')?.toLowerCase().trim();

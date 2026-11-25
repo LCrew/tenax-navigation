@@ -36,6 +36,13 @@ let pending: { day: string; line: string }[] = [];
 let metaDirty = false;
 const lastVisit = new Map<string, number>();
 
+// Limits, so a script running under one account can't fill the disk or the memory: the same event again
+// within a few seconds (a double click) is recorded once, and one person gets at most DAILY_CAP events a day.
+const REPEAT_MS = 3_000;
+const DAILY_CAP = 2_000;
+const lastEvent = new Map<string, { key: string; t: number }>();
+const perDay = { day: '', counts: new Map<string, number>() };
+
 const dayOf = (t: number) => today(new Date(t));
 const cutoffDay = () => today(new Date(Date.now() - (AUDIT_DAYS - 1) * 86_400_000));
 
@@ -91,8 +98,20 @@ function seen(who: Who, t: number) {
 function add(who: Who, e: Omit<AuditEvent, 't' | 'oid'>) {
   const t = Date.now();
   seen(who, t);
+  const key = `${e.type}|${e.tile ?? ''}`;
+  const prev = lastEvent.get(who.oid);
+  lastEvent.set(who.oid, { key, t });
+  if (prev?.key === key && t - prev.t < REPEAT_MS) return;
+  const day = dayOf(t);
+  if (perDay.day !== day) {
+    perDay.day = day;
+    perDay.counts.clear();
+  }
+  const n = perDay.counts.get(who.oid) ?? 0;
+  if (n >= DAILY_CAP) return;
+  perDay.counts.set(who.oid, n + 1);
   const ev: AuditEvent = { t, oid: who.oid, ...e };
-  pending.push({ day: dayOf(t), line: JSON.stringify(ev) });
+  pending.push({ day, line: JSON.stringify(ev) });
 }
 
 export function auditVisit(who: Who) {
@@ -117,7 +136,7 @@ export function auditAccept(who: Who, tile: { id: string; title: string }, level
 export function acksOf(oid: string): Record<string, string> {
   return Object.fromEntries(Object.entries(acks[oid] ?? {}).map(([id, a]) => [id, a.v]));
 }
-export const ackDetails = (oid: string) => acks[oid] ?? {};
+export const ackDetails = (oid: string) => (Object.hasOwn(acks, oid) ? acks[oid] : {});
 
 export async function flushAudit() {
   const batch = pending;
@@ -155,7 +174,7 @@ function rangeDays(days: number) {
 // Parsed past days, so paging through the log doesn't re-read every file. Today is always read fresh, and a
 // past day that still gets a late write (around midnight) is dropped from it.
 const dayCache = new Map<string, AuditEvent[]>();
-const MAX_CACHED_DAYS = 120;
+const MAX_CACHED_DAYS = 60;
 
 /** One day's events, oldest first, including those not written to disk yet. */
 async function readDay(day: string): Promise<AuditEvent[]> {
@@ -228,4 +247,4 @@ export async function listPeople(days: number) {
     .sort((a, b) => b.last - a.last);
 }
 
-export const personOf = (oid: string) => people[oid];
+export const personOf = (oid: string) => (Object.hasOwn(people, oid) ? people[oid] : undefined);
