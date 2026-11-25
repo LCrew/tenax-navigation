@@ -10,13 +10,18 @@
 .lvl--danger  { --lvl: #C8231B; --on-lvl: #fff; }
 
 /* shade and window are siblings (rule 8.3): a fading ancestor would switch off the window's blur */
-.warn-shade { position: fixed; inset: 0; z-index: 60; background: var(--shade); animation: fade-in .32s ease-out both; }
+.warn-shade { position: fixed; inset: 0; z-index: 60; background: var(--shade); animation: fade-in .32s ease-out backwards; }
 :root[data-surface="glass"] .warn-shade { background: rgba(30, 30, 28, .26); }
 
 /* only as tall as the window, so it never sits as an invisible box over the page */
 .warn-wrap {
   position: fixed; inset: 0; z-index: 61; margin: auto 0; height: fit-content; max-height: 100%;
   display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+/* whole pixels (see .sheet in styles.css): the script sets the top, the padding keeps the left edge whole */
+.warn-wrap[style*="top"] { bottom: auto; margin: 0; }
+@supports (padding: round(down, 10.5px, 1px)) {
+  .warn-wrap { padding-left: max(16px, round(down, (100% - 520px) / 2, 1px)); padding-right: max(16px, round(up, (100% - 520px) / 2, 1px)); }
 }
 
 .warn {
@@ -25,7 +30,7 @@
   border-radius: 32px; background: var(--card); color: var(--ink);
   box-shadow: 0 24px 60px rgba(0, 0, 0, .2);
   outline: none;
-  animation: fade-in .32s ease-out both;
+  animation: fade-in .32s ease-out backwards;
 }
 /* glass: the frosted pane is a backing layer behind the content, because Safari redraws content inside
    a blurred element out of place while it scrolls or hovers (see .sheet in styles.css).
@@ -34,7 +39,7 @@
 :root[data-surface="glass"] .warn {
   position: relative; isolation: isolate; overflow: visible;
   background: transparent; box-shadow: none;
-  animation: warn-rise .32s var(--ease) both;
+  animation: warn-rise .32s var(--ease) backwards;
 }
 :root[data-surface="glass"] .warn::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
@@ -42,9 +47,9 @@
   -webkit-backdrop-filter: saturate(1.8) blur(28px); backdrop-filter: saturate(1.8) blur(28px);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shine), 0 24px 60px rgba(0, 0, 0, .2);
-  animation: fade-in .32s ease-out both;
+  animation: fade-in .32s ease-out backwards;
 }
-:root[data-surface="glass"] .warn > * { animation: fade-in .32s ease-out both; }
+:root[data-surface="glass"] .warn > * { animation: fade-in .32s ease-out backwards; }
 @keyframes warn-rise { from { transform: translateY(12px) scale(.985); } }
 
 /* 1. the coloured band: icon and level word */

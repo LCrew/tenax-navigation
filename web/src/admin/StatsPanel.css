@@ -21,7 +21,7 @@
   border: 1px solid transparent;
   background: var(--card);
   box-shadow: 0 1px 2px rgba(40, 40, 36, .08);
-  animation: rise-in .5s var(--ease) both;
+  animation: rise-in .5s var(--ease) backwards;
 }
 .stat-tile:nth-child(2) { animation-delay: .05s; }
 .stat-tile:nth-child(3) { animation-delay: .1s; }
@@ -50,13 +50,13 @@
   stroke-linejoin: round;
   stroke-linecap: round;
   stroke-dasharray: 1;
-  animation: draw 1.2s cubic-bezier(.3, .7, .2, 1) .35s both;
+  animation: draw 1.2s cubic-bezier(.3, .7, .2, 1) .35s backwards;
 }
 .trend__line--clicks { animation-delay: .45s; }
 .trend__line--views, .trend__dot--views { stroke: var(--series-views); }
 .trend__line--clicks, .trend__dot--clicks { stroke: var(--series-clicks); }
 .trend__dot { fill: var(--bg); stroke-width: 2.4; }
-.trend__end { animation: fade-in .4s ease 1.4s both; }
+.trend__end { animation: fade-in .4s ease 1.4s backwards; }
 .trend__end .trend__dot--views { fill: var(--series-views); }
 .trend__end .trend__dot--clicks { fill: var(--series-clicks); }
 .trend__cross { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 4; }
@@ -91,7 +91,7 @@
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   white-space: nowrap;
-  animation: fade-in .15s ease both;
+  animation: fade-in .15s ease backwards;
 }
 
 /* ---------- ranking ---------- */
@@ -121,7 +121,7 @@
   border-radius: 5px;
   background: var(--series-clicks);
   transform-origin: left;
-  animation: bar-grow .7s var(--ease) both;
+  animation: bar-grow .7s var(--ease) backwards;
 }
 @media (max-width: 600px) {
   .ranking__bar-col { display: none; }

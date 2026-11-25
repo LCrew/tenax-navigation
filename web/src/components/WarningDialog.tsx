@@ -47,6 +47,25 @@ export function WarningDialog({ tile, warning, onAccept, onCancel, preview }: Pr
     setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
   };
   useLayoutEffect(checkRead, [warning.message]);
+
+  // Centre the window on whole pixels: Safari on screens that aren't Retina repaints hovered parts of a
+  // window sitting a fraction of a pixel off at a slightly different offset (split letters, shifted icons).
+  const wrap = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const place = () => {
+      el.style.top = `${Math.max(0, Math.round((window.innerHeight - el.offsetHeight) / 2))}px`;
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, []);
   useEffect(() => {
     window.addEventListener('resize', checkRead);
     return () => window.removeEventListener('resize', checkRead);
@@ -95,7 +114,7 @@ export function WarningDialog({ tile, warning, onAccept, onCancel, preview }: Pr
   return createPortal(
     <>
       <div className="warn-shade" onMouseDown={onCancel} aria-hidden="true" />
-      <div className="warn-wrap" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div ref={wrap} className="warn-wrap" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
         <div
           ref={box}
           className={`warn lvl--${warning.level}`}
