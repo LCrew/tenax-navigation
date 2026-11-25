@@ -65,6 +65,16 @@ const id = z
   .regex(/^[A-Za-z0-9_-]{1,40}$/)
   .refine((v) => !['__proto__', 'constructor', 'prototype'].includes(v), 'Reserved id');
 
+/** An Entra ID security group, by object ID; the name is only for showing it in the editor. */
+export const SecurityGroupRefSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, 'Expected a group object ID')
+    .transform((v) => v.toLowerCase()),
+  name: z.string().max(256),
+});
+export const MAX_TILE_GROUPS = 20;
+
 export const TileSchema = z.object({
   id,
   title: z.string().min(1).max(80),
@@ -78,6 +88,8 @@ export const TileSchema = z.object({
   embeddable: z.boolean().optional(),
   /** Shown before the page opens; people must accept it first. */
   warning: WarningSchema.optional(),
+  /** Only members of at least one of these groups (or administrators) see the tile. Missing or empty: everyone. */
+  securityGroups: z.array(SecurityGroupRefSchema).max(MAX_TILE_GROUPS, `At most ${MAX_TILE_GROUPS} groups`).optional(),
 });
 
 export const GroupSchema = z.object({
@@ -113,6 +125,7 @@ export const ConfigSchema = z.object({
 export type Icon = z.infer<typeof IconSchema>;
 export type Tile = z.infer<typeof TileSchema>;
 export type Warning = z.infer<typeof WarningSchema>;
+export type SecurityGroupRef = z.infer<typeof SecurityGroupRefSchema>;
 export type WarningLevel = Warning['level'];
 export type Group = z.infer<typeof GroupSchema>;
 export type Theme = z.infer<typeof ThemeSchema>;

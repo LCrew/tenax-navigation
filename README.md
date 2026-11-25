@@ -30,6 +30,8 @@ Backups: copy the `navigation-data` volume, or use **Settings → Export JSON** 
 4. **App roles → Create app role**: display name `Navigation admin`, value `Nav.Admin`, allowed member types Users/Groups.
 5. **Enterprise applications → Tenax Navigation → Users and groups** → assign the admins (or an admin group) to the `Nav.Admin` role.
 
+6. *Only for tiles limited to security groups:* **API permissions → Add a permission → Microsoft Graph → Application permissions** → `GroupMember.Read.All` and `User.ReadBasic.All` → **Grant admin consent**. The server uses them, signed in as the app itself, to search groups in the editor and to check who is a member. Groups with hidden membership also need `Member.Read.Hidden`.
+
 Alternatively, set `ADMIN_GROUP_ID` to a security group's object ID and enable the *groups* claim under **Token configuration**. The app role is preferred because it avoids the groups-overage limit.
 
 **Viewers need no role.** The `Nav.Admin` role only adds **Edit page** and **Statistics**. Who can sign in at all is set under **Enterprise applications → Tenax Navigation → Properties → Assignment required?**:
@@ -46,6 +48,7 @@ Accounts from other organizations are rejected by Microsoft, because the app is 
   - Drag tiles to reorder them, and use ✎ / 🗑 on each tile.
   - **+ Section** adds a section. Sections can be renamed, moved and deleted, and get an optional company logo.
   - **Everyone / Admins only** on each section: an admin-only section is left out of the page for everyone without the `Nav.Admin` role. The server removes it before sending the page, so normal users can't find those links in the browser either.
+  - **Who can see this tile** in the tile editor: *Everyone*, or *Members of security groups*. Search Entra ID security groups by name or paste an object ID; each group shows its object ID with a copy button. Only members of at least one picked group see the tile, including people in a group nested inside it. Admins always see every tile, with a 👥 badge on restricted ones in edit mode. The server leaves hidden tiles out before sending the page, and drops a section whose tiles are all hidden. Membership is checked with Microsoft Graph and kept 5 minutes, so changes show up within 5 minutes. If Graph can't be reached or the permissions from step 6 are missing, restricted tiles stay hidden (the editor's search says what's wrong).
   - **Settings**: title, logo, default theme, column count, and JSON import/export. A tile can have its own highlight colour for its hover pane.
   - **Save** publishes to everyone. **Cancel** discards the changes.
 - **Open as** per tile:

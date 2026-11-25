@@ -9,6 +9,7 @@ import { ackDetails, acksOf, AUDIT_DAYS, auditAccept, auditOpen, auditVisit, lis
 import { getSession, requireAdmin, type Session } from '../auth';
 import { loadConfig, saveConfig } from '../config-store';
 import { env } from '../env';
+import { GraphError, lookUpGroups, memberGroups, searchSecurityGroups } from '../graph';
 import { probeEmbeddable } from '../probe';
 import { getStats, recordClick, recordView } from '../stats';
 
@@ -22,10 +23,7 @@ api.get('/config', async (c) => {
   // The answer depends on who asks (admin-only sections), so it must never be shared by a cache.
   c.header('Cache-Control', 'private, no-cache');
   c.header('Vary', 'Cookie');
-  const config = await loadConfig();
-  const s = await getSession(c);
-  if (s?.isAdmin) return c.json(config);
-  return c.json({ ...config, groups: config.groups.filter((g) => !g.adminOnly) });
+  return c.json(await configFor(await loadConfig(), await getSession(c)));
 });
 
 api.get('/me', async (c) => {
@@ -37,10 +35,25 @@ api.get('/me', async (c) => {
 
 const who = (s: Session) => ({ oid: s.oid, name: s.name, email: s.email });
 
-/** A tile the person may see (admin-only sections only for admins). */
-function findTile(config: Config, id: string, s: Session | null): Tile | undefined {
-  for (const g of config.groups) {
-    if (g.adminOnly && !s?.isAdmin) continue;
+/**
+ * The config as this person may see it. Administrators get all of it (the editor saves the whole config).
+ * Everyone else: no admin-only sections, only the tiles of security groups they are in (nested groups
+ * count), and not which groups those are.
+ */
+async function configFor(config: Config, s: Session | null): Promise<Config> {
+  if (s?.isAdmin) return config;
+  const groups = config.groups.filter((g) => !g.adminOnly);
+  const wanted = groups.flatMap((g) => g.tiles.flatMap((t) => t.securityGroups?.map((r) => r.id) ?? []));
+  const mine = s && wanted.length ? await memberGroups(s.oid, wanted) : new Set<string>();
+  const visible = (t: Tile) => !t.securityGroups?.length || t.securityGroups.some((r) => mine.has(r.id));
+  const shown = groups.map((g) => ({ ...g, tiles: g.tiles.filter(visible).map(({ securityGroups: _, ...t }) => t) }));
+  // a section whose every tile is for other groups is left out, rather than shown empty
+  return { ...config, groups: shown.filter((g, i) => g.tiles.length || !groups[i].tiles.length) };
+}
+
+/** A tile the person may see. */
+async function findTile(config: Config, id: string, s: Session | null): Promise<Tile | undefined> {
+  for (const g of (await configFor(config, s)).groups) {
     const t = g.tiles.find((t) => t.id === id);
     if (t) return t;
   }
@@ -65,7 +78,7 @@ api.post('/track', async (c) => {
     recordView();
     if (s) auditVisit(who(s));
   } else {
-    const tile = findTile(await loadConfig(), ev.data.tileId, s);
+    const tile = await findTile(await loadConfig(), ev.data.tileId, s);
     if (!tile) return c.body(null, 404);
     recordClick(tile.id);
     // a tile with a warning only shows the warning; the page opens when it is accepted (POST /ack)
@@ -80,7 +93,7 @@ api.post('/ack', async (c) => {
   if (!body.success) return c.body(null, 400);
   const s = await getSession(c);
   if (!s) return c.json({ error: 'Not signed in' }, 401);
-  const tile = findTile(await loadConfig(), body.data.tileId, s);
+  const tile = await findTile(await loadConfig(), body.data.tileId, s);
   if (!tile?.warning) return c.json({ error: 'This tile has no warning' }, 404);
   const version = warningVersion(tile.warning);
   auditAccept(who(s), tile, tile.warning.level, version);
@@ -129,6 +142,19 @@ api.get('/audit', requireAdmin, async (c) => {
   return c.json(
     await queryEvents(rangeOf(q.days), { oid: q.oid || undefined, types: q.type && Object.hasOwn(TYPES, q.type) ? TYPES[q.type] : undefined, q: q.q?.slice(0, 100) }, limit, before),
   );
+});
+
+// Security groups for the tile editor: ?q= searches by name or object ID, ?ids= gives the current names.
+api.get('/security-groups', requireAdmin, async (c) => {
+  c.header('Cache-Control', 'no-store');
+  try {
+    const ids = c.req.query('ids');
+    if (ids !== undefined) return c.json(await lookUpGroups(ids.split(',')));
+    return c.json({ groups: await searchSecurityGroups(c.req.query('q') ?? '') });
+  } catch (e) {
+    if (e instanceof GraphError) return c.json({ error: e.message }, 502);
+    throw e;
+  }
 });
 
 api.put('/config', requireAdmin, async (c) => {

@@ -1,0 +1,42 @@
+/* tile editor: security groups that may see a tile */
+.gpick { display: flex; flex-direction: column; gap: 10px; }
+.gpick__none { margin: 0; padding-left: 4px; font-size: 13.5px; color: var(--muted); }
+
+.gpick__picked, .gpick__results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gpick__chip, .gpick__row {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  border-radius: 18px; background: var(--tile);
+}
+:root[data-surface="glass"] .gpick__chip, :root[data-surface="glass"] .gpick__row { background: var(--well); box-shadow: var(--bead); }
+
+/* picked groups */
+.gpick__chip { padding: 8px 6px 8px 12px; }
+.gpick__chip-icon { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--on-ink); }
+.gpick__chip.is-gone .gpick__chip-icon { background: var(--warn-bg); color: var(--warn-ink); }
+.gpick__chip-text, .gpick__row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.gpick__chip-text { padding-left: 4px; }
+.gpick__name { font-size: 14.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.gpick__desc { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.gpick__id { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; user-select: all; }
+.gpick__gone { font-size: 12.5px; font-weight: 600; color: var(--warn-ink); }
+.gpick__copy.is-done { color: var(--ok); }
+
+/* search results */
+.gpick__results { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; margin: -2px; }
+.gpick__row { padding-right: 6px; transition: background-color .15s ease; }
+.gpick__row:hover { background: var(--sel); }
+.gpick__pick {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 4px 8px 10px;
+  border: 0; border-radius: 18px; background: none; color: inherit; font: inherit; cursor: pointer;
+}
+.gpick__pick:disabled { cursor: default; opacity: .5; }
+.gpick__pick:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.gpick__mark {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); color: var(--muted); transition: background-color .15s ease, color .15s ease;
+}
+.gpick__row.is-on .gpick__mark { background: var(--ink); color: var(--on-ink); }
+:root[data-surface="glass"] .gpick__mark { background: var(--glass); box-shadow: var(--bead); }
+:root[data-surface="glass"] .gpick__row.is-on .gpick__mark { background: var(--ink); }
+.gpick__empty { padding: 10px 12px; font-size: 13.5px; color: var(--muted); }
+.gpick__error { align-self: stretch; }

@@ -11,6 +11,9 @@ export type AuditEvent = { t: number; oid: string; type: AuditType; tile?: strin
 export type AuditFilter = 'opened' | 'warnings' | 'visits';
 export type PersonRow = { oid: string; name: string; email?: string; first: number; last: number; visits: number; opens: number; accepts: number };
 /** state: current = still covers the warning; changed = the warning was edited since; removed = the tile or its warning is gone */
+/** An Entra ID security group as the picker shows it */
+export type SecurityGroup = { id: string; name: string; description?: string };
+
 export type PersonAck = { tileId: string; title: string; level: WarningLevel; at: number; state: 'current' | 'changed' | 'removed'; acknowledge: boolean };
 
 
@@ -42,6 +45,11 @@ export const api = {
     fd.append('file', file);
     return fetch('/api/uploads', { method: 'POST', body: fd }).then((r) => json<{ path: string }>(r));
   },
+  securityGroups: (q: string, signal?: AbortSignal) =>
+    fetch(`/api/security-groups?q=${encodeURIComponent(q)}`, { signal }).then((r) => json<{ groups: SecurityGroup[] }>(r)),
+  /** current names of these groups; missing: deleted, or no longer a security group */
+  lookUpGroups: (ids: string[]) =>
+    fetch(`/api/security-groups?ids=${ids.map(encodeURIComponent).join(',')}`).then((r) => json<{ groups: SecurityGroup[]; missing: string[] }>(r)),
   stats: (days: number) => fetch(`/api/stats?days=${days}`).then((r) => json<{ days: StatsDay[] }>(r)),
   people: (days: number) => fetch(`/api/people?days=${days}`).then((r) => json<{ people: PersonRow[]; keptDays: number }>(r)),
   person: (oid: string) =>

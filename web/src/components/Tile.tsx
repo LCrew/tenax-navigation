@@ -1,4 +1,5 @@
 import { useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { UsersRound } from 'lucide-react';
 import type { Tile as TileT } from '../../../shared/schema';
 import { api } from '../api';
 import { TileIcon } from './TileIcon';
@@ -29,6 +30,7 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
   // so drop it once it has played.
   const [entered, setEntered] = useState(false);
   const pointer = useRef<string>('mouse');
+  const groups = tile.securityGroups?.length ?? 0;
 
   const style: Record<string, string | number> = {};
   // Optional highlight colour for this tile (edge line and tint of the hover pane). Older configs stored
@@ -70,10 +72,20 @@ export function Tile({ tile, onOpen, disabled, index }: Props) {
       {/* the clip keeps the moving parts inside the rounded tile, while the tile's own hover shadow
           (::after) stays outside it and can be faded with opacity alone */}
       <span className="tile__clip" aria-hidden="true">
-        {/* only editors see which tiles carry a warning */}
-        {disabled && tile.warning && (
-          <span className={`tile__warn lvl--${tile.warning.level}`} title={`${LEVELS[tile.warning.level].label}: read before opening`}>
-            <TileIcon icon={warningIcon(tile.warning)} size={15} />
+        {/* only editors see which tiles carry a warning, or are only for some security groups */}
+        {disabled && (tile.warning || groups > 0) && (
+          <span className="tile__badges">
+            {tile.warning && (
+              <span className={`tile__warn lvl--${tile.warning.level}`} title={`${LEVELS[tile.warning.level].label}: read before opening`}>
+                <TileIcon icon={warningIcon(tile.warning)} size={15} />
+              </span>
+            )}
+            {groups > 0 && (
+              <span className="tile__groups" title={`Only for members of ${tile.securityGroups!.map((g) => g.name).join(', ')}`}>
+                <UsersRound size={14} />
+                {groups}
+              </span>
+            )}
           </span>
         )}
         {/* active: a brighter pane of glass slides in from the right, a glint passes over the tile */}

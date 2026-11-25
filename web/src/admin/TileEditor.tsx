@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { TileSchema, type Group, type Tile as TileT } from '../../../shared/schema';
+import { TileSchema, type Group, type SecurityGroupRef, type Tile as TileT } from '../../../shared/schema';
 import { api, newId } from '../api';
 import { Tile } from '../components/Tile';
+import { GroupPicker } from './GroupPicker';
 import { IconPicker } from './IconPicker';
 import { Card, ColorField, Field, Modal } from './Modal';
 import { WarningEditor } from './WarningEditor';
@@ -32,7 +33,8 @@ function EmbedStatus({ embeddable }: { embeddable?: boolean }) {
 }
 
 export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: Props) {
-  const [draft, setDraft] = useState<TileT>(tile ?? blank());
+  // an empty list means everyone, as on the server
+  const [draft, setDraft] = useState<TileT>(() => (tile ? { ...tile, securityGroups: tile.securityGroups?.length ? tile.securityGroups : undefined } : blank()));
   const [targetGroup, setTargetGroup] = useState(groupId);
   const [error, setError] = useState<string | null>(null);
   const [probe, setProbe] = useState<{ busy: boolean; reason?: string }>({ busy: false });
@@ -43,7 +45,20 @@ export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: P
   const highlight = draft.colors?.bar1 ?? draft.colors?.fill ?? draft.colors?.bar3;
   const setHighlight = (v?: string) => setDraft((d) => ({ ...d, colors: v ? { bar1: v } : undefined }));
 
+  // Who can see it: switching to Everyone and back keeps the groups picked before
+  const lastGroups = useRef<SecurityGroupRef[]>(draft.securityGroups ?? []);
+  const restricted = draft.securityGroups !== undefined;
+  const setRestricted = (on: boolean) => {
+    if (on === restricted) return;
+    if (!on) lastGroups.current = draft.securityGroups ?? [];
+    set('securityGroups', on ? lastGroups.current : undefined);
+  };
+
   const save = async () => {
+    if (draft.securityGroups && !draft.securityGroups.length) {
+      setError('Who can see this tile: pick at least one security group, or choose Everyone.');
+      return;
+    }
     const parsed = TileSchema.safeParse(draft);
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => (i.path[0] === 'warning' ? `Warning: ${i.message}` : `${i.path.join('.') || 'tile'}: ${i.message}`)).join(' · '));
@@ -145,6 +160,22 @@ export function TileEditor({ tile, groupId, groups, accent, onSave, onClose }: P
         <Card label="Highlight colour (optional)">
           <ColorField label="Highlight" value={highlight} placeholder={accent} onChange={setHighlight} />
           <span className="field__hint">Colours the edge and tint of the pane that slides in when you hover this tile. Leave it empty to follow the theme.</span>
+        </Card>
+
+        <Card label="Who can see this tile">
+          <div className="seg" role="group" aria-label="Who can see this tile">
+            {[false, true].map((v) => (
+              <button key={String(v)} type="button" className={restricted === v ? 'on' : ''} aria-pressed={restricted === v} onClick={() => setRestricted(v)}>
+                {v ? 'Members of security groups' : 'Everyone'}
+              </button>
+            ))}
+          </div>
+          {restricted && <GroupPicker value={draft.securityGroups!} onChange={(v) => set('securityGroups', v)} />}
+          <span className="field__hint">
+            {restricted
+              ? 'People in any of these groups see the tile, also when they are in a group nested inside one. Administrators always see every tile. Membership changes show up within 5 minutes.'
+              : 'Everyone who can open this page sees the tile.'}
+          </span>
         </Card>
 
         <Card label="Warning before opening">

@@ -156,9 +156,15 @@
   .warn__box, .warn__box::after { transition: none; }
 }
 
-/* edit mode: a small badge in the corner of tiles that carry a warning */
+/* edit mode: what a tile has (a warning, only for some security groups) */
+.tile__badges { position: absolute; z-index: 2; top: 10px; left: 10px; display: flex; gap: 6px; }
+.tile__groups {
+  height: 26px; padding: 0 9px 0 7px; border-radius: 13px;
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700;
+  background: var(--ink); color: var(--on-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+}
 .tile__warn {
-  position: absolute; z-index: 2; top: 10px; left: 10px;
   width: 26px; height: 26px; border-radius: 50%;
   display: grid; place-items: center;
   background: var(--lvl); color: var(--on-lvl);
