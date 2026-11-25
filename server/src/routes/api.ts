@@ -152,7 +152,7 @@ api.get('/security-groups', requireAdmin, async (c) => {
     if (ids !== undefined) return c.json(await lookUpGroups(ids.split(',')));
     return c.json({ groups: await searchSecurityGroups(c.req.query('q') ?? '') });
   } catch (e) {
-    if (e instanceof GraphError) return c.json({ error: e.message }, 502);
+    if (e instanceof GraphError) return c.json({ error: e.message }, 503);
     throw e;
   }
 });

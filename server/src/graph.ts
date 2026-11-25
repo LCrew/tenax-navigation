@@ -17,7 +17,10 @@ const MEMBERSHIP_TTL = 5 * 60_000; // membership changes show up within 5 minute
 const FAILED_TTL = 30_000; // after a failed check, try again soon (until then: not a member)
 const MAX_CACHED_PEOPLE = 5000;
 
-/** Thrown with a message an administrator can act on. */
+/**
+ * Thrown with a message an administrator can act on. Sent to the editor as 503, not 502: Cloudflare replaces an
+ * origin's 502 and 504 responses with its own error page, and the message would be lost.
+ */
 export class GraphError extends Error {
   constructor(
     message: string,
@@ -48,11 +51,21 @@ const devMemberOf = new Set((process.env.DEV_GROUPS ?? '').split(',').map((s) =>
 let token: { value: string; until: number } | null = null;
 let tokenRequest: Promise<string> | null = null;
 
+/** fetch, with network failures and timeouts turned into a message for the editor */
+async function reach(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    console.error(`Could not reach ${new URL(url).host}:`, e instanceof Error ? (e.cause ?? e.message) : e);
+    throw new GraphError(`Could not reach ${new URL(url).host} from the server. Check its internet access and DNS.`, 503);
+  }
+}
+
 async function appToken(): Promise<string> {
   if (token && Date.now() < token.until) return token.value;
   tokenRequest ??= (async () => {
     const { tenantId, clientId, clientSecret } = env.oidc!;
-    const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+    const res = await reach(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -66,7 +79,8 @@ async function appToken(): Promise<string> {
     const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
     if (!res.ok || !body.access_token) {
       console.error('Graph token request failed', res.status, body.error_description);
-      throw new GraphError('Could not sign in to Microsoft Graph as the app. Check OIDC_CLIENT_ID and OIDC_CLIENT_SECRET.', 502);
+      const code = body.error_description?.match(/AADSTS\d+/)?.[0] ?? res.status;
+      throw new GraphError(`Could not sign in to Microsoft Graph as the app (${code}). Check OIDC_TENANT_ID, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET.`, 503);
     }
     // renew 5 minutes before it runs out
     token = { value: body.access_token, until: Date.now() + Math.max((body.expires_in ?? 3600) - 300, 60) * 1000 };
@@ -79,7 +93,7 @@ async function graph<T>(path: string, init: { method?: string; body?: unknown; e
   const headers: Record<string, string> = { authorization: `Bearer ${await appToken()}` };
   if (init.body !== undefined) headers['content-type'] = 'application/json';
   if (init.eventual) headers.ConsistencyLevel = 'eventual'; // needed for $search and $count
-  const res = await fetch(GRAPH + path, {
+  const res = await reach(GRAPH + path, {
     method: init.method ?? 'GET',
     headers,
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
@@ -88,9 +102,13 @@ async function graph<T>(path: string, init: { method?: string; body?: unknown; e
   if (res.ok) return (await res.json()) as T;
   const err = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
   console.error(`Graph ${init.method ?? 'GET'} ${path.split('?')[0]} failed`, res.status, err.error?.code, err.error?.message);
-  if (res.status === 401 || res.status === 403) throw new GraphError(`Microsoft Graph refused the request. ${PERMISSIONS_HINT}`, 502);
+  if (res.status === 401 || res.status === 403) {
+    // permissions granted after this token was issued only show up in a new one
+    token = null;
+    throw new GraphError(`Microsoft Graph refused the request (${err.error?.code ?? res.status}). ${PERMISSIONS_HINT}`, 503);
+  }
   if (res.status === 404) throw new GraphError('Not found', 404);
-  throw new GraphError('Microsoft Graph did not answer. Try again in a moment.', 502);
+  throw new GraphError(`Microsoft Graph answered with an error (${err.error?.code ?? res.status}): ${err.error?.message ?? 'no details'}`, 503);
 }
 
 type GraphGroup = { id: string; displayName: string | null; description: string | null; securityEnabled?: boolean };
